@@ -1,0 +1,28 @@
+{
+  "name": "tiler-engine",
+  "version": "1.0.1",
+  "description": "A tile engine which stores a sparse area of zones in a lru and makes adressable a MAXINTxMAXINT area",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "area-qt": "^1.0.2",
+    "lru": "^3.0.0",
+    "node-promise": "^0.5.12"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/psvensson/tiler.git"
+  },
+  "author": "Peter Svensson",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/psvensson/tiler/issues"
+  },
+  "homepage": "https://github.com/psvensson/tiler#readme"
+}
