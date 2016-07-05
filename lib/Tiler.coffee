@@ -13,27 +13,28 @@ class Tiler
   constructor:(@storageEngine, @cacheEngine, @modelEngine)->
     @zones = new lru(lruopts)
 
-  getTileAt:(x,y)=>
+  getTileAt:(level,x,y)=>
     q = defer()
-    @resolveZoneFor(x,y).then (zone)=>
+    @resolveZoneFor(level,x,y).then (zone)=>
       if zone then q.resolve(zone.tiles[x+'_'+y]) else q.resolve()
     q
 
-  setTileAt:(x,y, tile)=>
+  setTileAt:(level,x,y, tile)=>
     q = defer()
-    @resolveZoneFor(x,y).then (zone)=>
+    @resolveZoneFor(level,x,y).then (zone)=>
       zone.tiles[x+'_'+y] = tile
       zone.serialize()
       q.resolve(tile)
     q
 
-  resolveZoneFor:(x,y)=>
+  resolveZoneFor:(level,x,y)=>
     q = defer()
-    tileid = @getZoneIdFor(x,y)
+    tileid = @getZoneIdFor(level,x,y)
     lruZone = @zones.get tileid
     if lruZone
       q.resolve(lruZone)
     else
+      # check to see if sibling instance have created the zone already
       @cacheEngine.get(tileid).then (exists) =>
         if exists
           @storageEngine.find('Zone', 'tileid', tileid).then (zone) ->
@@ -53,16 +54,17 @@ class Tiler
           @modelEngine.createZone(newzone).then (zoneObj)=>
             zoneObj.serialize()
             @zones.set tileid,zoneObj
+            # store that zone exists in distributed cache so sibling do not create duplicates
             @cacheEngine.set(tileid, 1).then ()->
               q.resolve(zoneObj)
     q
 
-  getZoneIdFor:(x,y) ->
+  getZoneIdFor:(level,x,y) ->
     xr = x % TILE_SIDE
     yr = y % TILE_SIDE
     zx =  (x - xr)
     zy =  (y - yr)
-    zx+'_'+zy
+    level+'_'+zx+'_'+zy
 
 
 module.exports = Tiler
