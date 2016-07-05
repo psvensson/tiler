@@ -15,34 +15,46 @@ class Tiler
 
   getTileAt:(x,y)=>
     q = defer()
-    @resolveZoneFor(x,y) (zone)=>
-      if zone then q.resolve(zone.getTileAt(x,y)) else q.resolve()
+    @resolveZoneFor(x,y).then (zone)=>
+      if zone then q.resolve(zone.tiles[x+'_'+y]) else q.resolve()
     q
 
-  setTileAt:(x,y)=>
+  setTileAt:(x,y, tile)=>
+    q = defer()
+    @resolveZoneFor(x,y).then (zone)=>
+      zone.tiles[x+'_'+y] = tile
+      zone.serialize()
+      q.resolve(tile)
+    q
 
   resolveZoneFor:(x,y)=>
     q = defer()
     tileid = @getZoneIdFor(x,y)
-    @cacheEngine.get(tileid).then (exists) =>
-      if exists
-        @storageEngine.find('Zone', 'tileid', tileid).then (zone) ->
-          if zone
-            q.resolve(zone)
-          else
-            console.log '** Could not find supposedly existing zone '+tileid+' !!!!!'
-      else
-        newzone =
-          type: 'Zone'
-          id: tileid
-          tileid: tileid
-          items: {}
-          entities: {}
-          tiles: {}
-        @modelEngine.createZone(newzone).then (zoneObj)=>
-          zoneObj.serialize()
-          @cacheEngine.set(tileid, 1).then ()->
-            q.resolve(zoneObj)
+    lruZone = @zones.get tileid
+    if lruZone
+      q.resolve(lruZone)
+    else
+      @cacheEngine.get(tileid).then (exists) =>
+        if exists
+          @storageEngine.find('Zone', 'tileid', tileid).then (zone) ->
+            if zone
+              @zones.set tileid,zone
+              q.resolve(zone)
+            else
+              console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
+        else
+          newzone =
+            type: 'Zone'
+            id: tileid
+            tileid: tileid
+            items: {}
+            entities: {}
+            tiles: {}
+          @modelEngine.createZone(newzone).then (zoneObj)=>
+            zoneObj.serialize()
+            @zones.set tileid,zoneObj
+            @cacheEngine.set(tileid, 1).then ()->
+              q.resolve(zoneObj)
     q
 
   getZoneIdFor:(x,y) ->

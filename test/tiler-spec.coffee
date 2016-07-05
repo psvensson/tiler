@@ -75,7 +75,18 @@ describe "Tiler test", ()->
       expect(zoneObj.id).to.equal('100_-280')
       done()
 
-  it "should be able to resolve an old zone", (done)->
+  it "should be able to resolve an old, existing zone", (done)->
     tiler.resolveZoneFor(114,-294).then (zoneObj)->
       expect(zoneObj.id).to.equal('100_-280')
+      done()
+
+  it "should be able set a tile", (done)->
+    tiler.setTileAt(79,94, {id:'foo'}).then ()->
+      tiler.resolveZoneFor(79,94).then (zoneObj)->
+        expect(zoneObj.tiles['79_94']).to.exist
+        done()
+
+  it "should be able get a tile", (done)->
+    tiler.getTileAt(79,94, {id:'foo'}).then (tile)->
+      expect(tile.id).to.equal('foo')
       done()
