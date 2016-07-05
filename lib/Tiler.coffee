@@ -10,7 +10,7 @@ TILE_SIDE = 20
 
 class Tiler
 
-  constructor:(@storageEngine)->
+  constructor:(@storageEngine, @cacheEngine, @modelEngine)->
     @zones = new lru(lruopts)
 
   getTileAt:(x,y)=>
@@ -24,18 +24,32 @@ class Tiler
   resolveZoneFor:(x,y)=>
     q = defer()
     tileid = @getZoneIdFor(x,y)
-    @storageEngine.find('Zone', 'tileid', tileid).then (zone) -> q.resolve(zone)
+    @cacheEngine.get(tileid).then (exists) =>
+      if exists
+        @storageEngine.find('Zone', 'tileid', tileid).then (zone) ->
+          if zone
+            q.resolve(zone)
+          else
+            console.log '** Could not find supposedly existing zone '+tileid+' !!!!!'
+      else
+        newzone =
+          type: 'Zone'
+          id: tileid
+          tileid: tileid
+          items: {}
+          entities: {}
+          tiles: {}
+        @modelEngine.createZone(newzone).then (zoneObj)=>
+          zoneObj.serialize()
+          @cacheEngine.set(tileid, 1).then ()->
+            q.resolve(zoneObj)
     q
 
   getZoneIdFor:(x,y) ->
-    xs = Math.sign(x)
-    ys = Math.sign(y)
-    #console.log 'xs = '+xs+' ys = '+ys
     xr = x % TILE_SIDE
     yr = y % TILE_SIDE
     zx =  (x - xr)
     zy =  (y - yr)
-    #console.log 'zx = '+zx+' zy = '+zy
     zx+'_'+zy
 
 
