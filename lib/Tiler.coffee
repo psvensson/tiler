@@ -7,6 +7,7 @@ lruopts =
   maxAgeInMilliseconds: 1000 * 60 * 60 * 24 * 4
 
 TILE_SIDE = 20
+BAD_TILE = {type: -1, ore: -1, stone: -1, features:[]}
 
 class Tiler
 
@@ -15,16 +16,24 @@ class Tiler
 
   getTileAt:(level,x,y)=>
     q = defer()
-    @resolveZoneFor(level,x,y).then (zone)=>
-      if zone then q.resolve(zone.tiles[x+'_'+y]) else q.resolve()
+    @resolveZoneFor(level,x,y).then(
+      (zone)->
+        if zone then q.resolve(zone.tiles[x+'_'+y]) else q.resolve(BAD_TILE)
+      ,()->
+        console.log 'getTileAt got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
+        q.reject(BAD_TILE)
+    )
     q
 
   setTileAt:(level,x,y, tile)=>
     q = defer()
-    @resolveZoneFor(level,x,y).then (zone)=>
-      zone.tiles[x+'_'+y] = tile
-      zone.serialize()
-      q.resolve(tile)
+    if not tile or (tile and not tile.type)
+      q.reject(BAD_TILE)
+    else
+      @resolveZoneFor(level,x,y).then (zone)=>
+        zone.tiles[x+'_'+y] = tile
+        zone.serialize()
+        q.resolve(tile)
     q
 
   resolveZoneFor:(level,x,y)=>
@@ -43,6 +52,7 @@ class Tiler
               q.resolve(zone)
             else
               console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
+              q.reject(BAD_TILE)
         else
           newzone =
             type: 'Zone'

@@ -79,7 +79,7 @@ describe "Tiler test", ()->
       done()
 
   it "should be able set a tile", (done)->
-    tiler.setTileAt(1,79,94, {id:'foo'}).then ()->
+    tiler.setTileAt(1,79,94, {id:'foo', type: 'bar'}).then ()->
       tiler.resolveZoneFor(1,79,94).then (zoneObj)->
         expect(zoneObj.tiles['79_94']).to.exist
         done()

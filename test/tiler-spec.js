@@ -108,7 +108,8 @@
     });
     it("should be able set a tile", function(done) {
       return tiler.setTileAt(1, 79, 94, {
-        id: 'foo'
+        id: 'foo',
+        type: 'bar'
       }).then(function() {
         return tiler.resolveZoneFor(1, 79, 94).then(function(zoneObj) {
           expect(zoneObj.tiles['79_94']).to.exist;
