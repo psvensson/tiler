@@ -107,9 +107,11 @@
       });
     });
     it("should be able set a tile", function(done) {
-      return tiler.setTileAt(1, 79, 94, {
+      return tiler.setTileAt(1, {
         id: 'foo',
-        type: 'bar'
+        type: 'bar',
+        x: 79,
+        y: 94
       }).then(function() {
         return tiler.resolveZoneFor(1, 79, 94).then(function(zoneObj) {
           expect(zoneObj.tiles['79_94']).to.exist;
@@ -117,11 +119,55 @@
         });
       });
     });
-    return it("should be able get a tile", function(done) {
+    it("should be able get a tile", function(done) {
       return tiler.getTileAt(1, 79, 94, {
         id: 'foo'
       }).then(function(tile) {
         expect(tile.id).to.equal('foo');
+        return done();
+      });
+    });
+    it("should be able set multiple tiles at once", function(done) {
+      var tiles;
+      tiles = [
+        {
+          x: 10,
+          y: 10,
+          type: 1,
+          ore: 1,
+          stone: 1,
+          features: []
+        }, {
+          x: 11,
+          y: 10,
+          type: 1,
+          ore: 1,
+          stone: 1,
+          features: []
+        }, {
+          x: 12,
+          y: 10,
+          type: 1,
+          ore: 1,
+          stone: 1,
+          features: []
+        }
+      ];
+      return tiler.setAndPersistTiles(1, tiles).then(function(tiles) {
+        expect(tiles.length).to.equal(3);
+        return done();
+      });
+    });
+    return it("should be able to fail when setting faulty tile", function(done) {
+      return tiler.setTileAt(1, {
+        id: 'foo',
+        type: 0,
+        x: 1179,
+        y: 1194
+      }).then(function() {
+        return console.log('setTile OK');
+      }, function(reject) {
+        expect(reject).to.exist;
         return done();
       });
     });

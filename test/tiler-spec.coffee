@@ -79,7 +79,7 @@ describe "Tiler test", ()->
       done()
 
   it "should be able set a tile", (done)->
-    tiler.setTileAt(1,79,94, {id:'foo', type: 'bar'}).then ()->
+    tiler.setTileAt(1, {id:'foo', type: 'bar',x:79, y:94}).then ()->
       tiler.resolveZoneFor(1,79,94).then (zoneObj)->
         expect(zoneObj.tiles['79_94']).to.exist
         done()
@@ -88,3 +88,22 @@ describe "Tiler test", ()->
     tiler.getTileAt(1,79,94, {id:'foo'}).then (tile)->
       expect(tile.id).to.equal('foo')
       done()
+
+  it "should be able set multiple tiles at once", (done)->
+    tiles =
+    [
+      {x:10, y:10, type: 1, ore: 1, stone: 1, features:[]}
+      {x:11, y:10, type: 1, ore: 1, stone: 1, features:[]}
+      {x:12, y:10, type: 1, ore: 1, stone: 1, features:[]}
+    ]
+    tiler.setAndPersistTiles(1, tiles).then (tiles)->
+      expect(tiles.length).to.equal(3)
+      done()
+
+  it "should be able to fail when setting faulty tile", (done)->
+    tiler.setTileAt(1, {id:'foo', type: 0,x:1179, y:1194}).then(
+      ()->console.log 'setTile OK'
+      (reject)->
+        expect(reject).to.exist
+        done()
+    )

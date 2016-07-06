@@ -1,5 +1,6 @@
 QuadTree 	      = require('area-qt')
 defer           = require('node-promise').defer
+all             = require('node-promise').allOrNone
 lru             = require('lru')
 
 lruopts =
@@ -7,7 +8,7 @@ lruopts =
   maxAgeInMilliseconds: 1000 * 60 * 60 * 24 * 4
 
 TILE_SIDE = 20
-BAD_TILE = {type: -1, ore: -1, stone: -1, features:[]}
+BAD_TILE = {x:0, y:0, type: -1, ore: -1, stone: -1, features:[]}
 
 class Tiler
 
@@ -25,15 +26,44 @@ class Tiler
     )
     q
 
-  setTileAt:(level,x,y, tile)=>
+  setTileAt:(level, tile)=>
     q = defer()
-    if not tile or (tile and not tile.type)
-      q.reject(BAD_TILE)
+    if not tile or (tile and not tile.type) or not tile.x or not tile.y
+      q.reject("bad tile format")
     else
+      x = tile.x
+      y = tile.y
       @resolveZoneFor(level,x,y).then (zone)=>
         zone.tiles[x+'_'+y] = tile
-        zone.serialize()
+        #zone.serialize()
+        #console.log 'setTileAt for '+tile
         q.resolve(tile)
+    q
+
+  setAndPersistTiles:(level, tiles) =>
+    q = defer()
+
+    zonesAffected = {}
+    tileOps = []
+
+    error = (err)->
+      console.log 'setAndPersistTiles error: '+err
+      q.reject(err)
+
+    success = (tiles)->
+      #console.log 'setAndPersistTiles success'
+      for k,v of zonesAffected
+        #console.log 'setAndPersistTiles serializing zone '+v.id
+        v.serialize()
+      q.resolve(tiles)
+
+    count = tiles.length
+    tiles.forEach (tile)=>
+      @resolveZoneFor(level, tile.x, tile.y).then (zone)=>
+        zonesAffected[zone.id] = zone
+        #console.log 'adding tileop for tile '+tile
+        tileOps.push @setTileAt(level, tile)
+        if --count == 0 then all(tileOps, error).then(success, error)
     q
 
   resolveZoneFor:(level,x,y)=>
