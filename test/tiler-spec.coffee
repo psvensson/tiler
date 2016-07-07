@@ -39,6 +39,13 @@ describe "Tiler test", ()->
       cache[id] = obj
       q.resolve()
       q
+    getAllValuesFor: (wildcard)->
+      q = defer()
+      rv = []
+      for k,v of cache
+        if k.indexOf(wildcard) > -1 then rv.push v
+      q.resolve(rv)
+      q
 
   modelEngine =
     createZone: (obj)->
@@ -107,3 +114,12 @@ describe "Tiler test", ()->
         expect(reject).to.exist
         done()
     )
+
+  it "should be able add an item", (done)->
+    item = {name: 'item 1', x:30, y: 40, height:1, width: 1}
+    tiler.addItem(1, item).then ()->
+      tiler.resolveZoneFor(1,30,40).then (zoneObj)->
+        itemQT = tiler.zoneItemQuadTrees[zoneObj.tileid]
+        addedItem = itemQT.retrieve({x:30, y: 40})
+        expect(addedItem).to.exist
+        done()

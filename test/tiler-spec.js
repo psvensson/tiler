@@ -59,6 +59,19 @@
         cache[id] = obj;
         q.resolve();
         return q;
+      },
+      getAllValuesFor: function(wildcard) {
+        var k, q, rv, v;
+        q = defer();
+        rv = [];
+        for (k in cache) {
+          v = cache[k];
+          if (k.indexOf(wildcard) > -1) {
+            rv.push(v);
+          }
+        }
+        q.resolve(rv);
+        return q;
       }
     };
     modelEngine = {
@@ -158,7 +171,7 @@
         return done();
       });
     });
-    return it("should be able to fail when setting faulty tile", function(done) {
+    it("should be able to fail when setting faulty tile", function(done) {
       return tiler.setTileAt(1, {
         id: 'foo',
         type: 0,
@@ -169,6 +182,28 @@
       }, function(reject) {
         expect(reject).to.exist;
         return done();
+      });
+    });
+    return it("should be able add an item", function(done) {
+      var item;
+      item = {
+        name: 'item 1',
+        x: 30,
+        y: 40,
+        height: 1,
+        width: 1
+      };
+      return tiler.addItem(1, item).then(function() {
+        return tiler.resolveZoneFor(1, 30, 40).then(function(zoneObj) {
+          var addedItem, itemQT;
+          itemQT = tiler.zoneItemQuadTrees[zoneObj.tileid];
+          addedItem = itemQT.retrieve({
+            x: 30,
+            y: 40
+          });
+          expect(addedItem).to.exist;
+          return done();
+        });
       });
     });
   });
