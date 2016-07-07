@@ -76,29 +76,48 @@ class Tiler
 
   getItemAt: (level, x, y) =>
     q = defer()
+    if not level or not x or not y
+      q.reject('Tiler.getTileAt got wrong parameters ')
+    else
+      tileid = @getZoneIdFor(level,x,y)
+      itemQT = @zoneItemQuadTrees[tileid]
+      @getSomething(level, x, y, itemQT, q)
+    q
+
+  getEntityAt: (level, x, y) =>
+    q = defer()
+    if not level or not x or not y
+      q.reject('Tiler.getTileAt got wrong parameters ')
+    else
+      tileid = @getZoneIdFor(level,x,y)
+      entityQT = @zoneEntityQuadTrees[tileid]
+      @getSomething(level, x, y, entityQT, q)
+    q
+
+
+  getSomething:(level, x, y, qt, q) =>
     @resolveZoneFor(level,x,y).then(
       (zoneObj)=>
         if zoneObj
-          itemQT = @zoneItemQuadTrees[zoneObj.tileid]
-          item = itemQT.retrieve({x: x, y: y})
-          #console.log 'getItemAt '+x+' '+y+' got item '+item
-          #console.dir item
-          q.resolve(item[0])
+          something = qt.retrieve({x: x, y: y})
+          q.resolve(something[0])
     ,()->
-      console.log 'getItemAt got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
+      console.log 'getSomething got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
       q.reject('could not resolve zone tileid for '+(arguments.join('_')))
     )
-    q
 
   getTileAt:(level,x,y)=>
     q = defer()
-    @resolveZoneFor(level,x,y).then(
-      (zone)->
-        if zone then q.resolve(zone.tiles[x+'_'+y]) else q.resolve(BAD_TILE)
-      ,()->
-        console.log 'getTileAt got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
-        q.reject('could not resolve zone tileid for '+(arguments.join('_')))
-    )
+    if not level or not x or not y
+      q.reject('Tiler.getTileAt wrong parameters ')
+    else
+      @resolveZoneFor(level,x,y).then(
+        (zone)->
+          if zone then q.resolve(zone.tiles[x+'_'+y]) else q.resolve(BAD_TILE)
+        ,()->
+          console.log 'getTileAt got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
+          q.reject('could not resolve zone tileid for '+(arguments.join('_')))
+      )
     q
 
   # NOTE: this method does not serialize the zone, so either serialize explicitly after this call or use setAndPersistTiles instead
