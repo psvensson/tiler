@@ -77,11 +77,13 @@ class Tiler
   getItemAt: (level, x, y) =>
     q = defer()
     @resolveZoneFor(level,x,y).then(
-      (zone)->
-        if zone
+      (zoneObj)=>
+        if zoneObj
           itemQT = @zoneItemQuadTrees[zoneObj.tileid]
           item = itemQT.retrieve({x: x, y: y})
-          q.resolve(item)
+          #console.log 'getItemAt '+x+' '+y+' got item '+item
+          #console.dir item
+          q.resolve(item[0])
     ,()->
       console.log 'getItemAt got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
       q.reject('could not resolve zone tileid for '+(arguments.join('_')))
@@ -146,6 +148,7 @@ class Tiler
       @zoneItemQuadTrees[zoneObj.tileid] = itemQT
       entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
       @zoneEntityQuadTrees[zoneObj.tileid] = entityQT
+      #console.log 'registerOne adds item and entity QTs for tileid '+zoneObj.tileid
       @zones.set tileid,zoneObj
       @siblings.registerAsSiblingForZone(zoneObj)
       q.resolve(zoneObj)
@@ -156,6 +159,8 @@ class Tiler
       q.resolve(lruZone)
     else
       # check to see if sibling instance have created the zone already
+      #console.log 'could not resolve zoneObj for '+tileid
+      #console.dir @zones
       @cacheEngine.get(tileid).then (exists) =>
         if exists
           @storageEngine.find('Zone', 'tileid', tileid).then (zone) ->

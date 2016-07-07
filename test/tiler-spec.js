@@ -184,7 +184,7 @@
         return done();
       });
     });
-    return it("should be able add an item", function(done) {
+    it("should be able add an item", function(done) {
       var item;
       item = {
         name: 'item 1',
@@ -204,6 +204,12 @@
           expect(addedItem).to.exist;
           return done();
         });
+      });
+    });
+    return it("should be able get an item", function(done) {
+      return tiler.getItemAt(1, 30, 40).then(function(item) {
+        expect(item).to.exist;
+        return done();
       });
     });
   });

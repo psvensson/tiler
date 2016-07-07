@@ -123,3 +123,8 @@ describe "Tiler test", ()->
         addedItem = itemQT.retrieve({x:30, y: 40})
         expect(addedItem).to.exist
         done()
+
+  it "should be able get an item", (done)->
+    tiler.getItemAt(1, 30, 40).then (item)->
+      expect(item).to.exist
+      done()
