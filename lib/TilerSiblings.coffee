@@ -15,6 +15,8 @@ class TilerSiblings
   sendCommand:(zoneObj, cmd, arg1, arg2)=>
     @getSiblingsForZone(zoneObj).then (siblings) =>
       command = {cmd: cmd, arg1: JSON.stringify((arg1), arg2: JSON.stringify(arg2))}
+      if arg1.toClient then command.arg1 = arg1.toClient()
+      if arg2.toClient then command.arg2 = arg2.toClient()
       siblings.forEach (sibling) -> @sendFunction(sibling, command)
 
   registerAsSiblingForZone: (zoneObj) =>
