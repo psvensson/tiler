@@ -184,7 +184,7 @@
         return done();
       });
     });
-    it("should be able add an item", function(done) {
+    it("should be able to add an item", function(done) {
       var item;
       item = {
         name: 'item 1',
@@ -206,10 +206,26 @@
         });
       });
     });
-    return it("should be able get an item", function(done) {
+    it("should be able to get an item", function(done) {
       return tiler.getItemAt(1, 30, 40).then(function(item) {
         expect(item).to.exist;
         return done();
+      });
+    });
+    return it("should be able remove an item", function(done) {
+      var item;
+      item = {
+        name: 'item 1',
+        x: 30,
+        y: 40,
+        height: 1,
+        width: 1
+      };
+      return tiler.removeItem(1, item).then(function(result) {
+        return tiler.getItemAt(1, 30, 40).then(function(olditem) {
+          expect(olditem).to.not.exist;
+          return done();
+        });
       });
     });
   });

@@ -115,7 +115,7 @@ describe "Tiler test", ()->
         done()
     )
 
-  it "should be able add an item", (done)->
+  it "should be able to add an item", (done)->
     item = {name: 'item 1', x:30, y: 40, height:1, width: 1}
     tiler.addItem(1, item).then ()->
       tiler.resolveZoneFor(1,30,40).then (zoneObj)->
@@ -124,7 +124,14 @@ describe "Tiler test", ()->
         expect(addedItem).to.exist
         done()
 
-  it "should be able get an item", (done)->
+  it "should be able to get an item", (done)->
     tiler.getItemAt(1, 30, 40).then (item)->
       expect(item).to.exist
       done()
+
+  it "should be able remove an item", (done)->
+    item = {name: 'item 1', x:30, y: 40, height:1, width: 1}
+    tiler.removeItem(1, item).then (result)->
+      tiler.getItemAt(1, 30, 40).then (olditem)->
+        expect(olditem).to.not.exist
+        done()
