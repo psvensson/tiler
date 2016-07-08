@@ -20,11 +20,12 @@ TODO:
 
 class Tiler
 
-  constructor:(@storageEngine, @cacheEngine, @modelEngine, @myAddress, @sendFunction)->
+  constructor:(@storageEngine, @cacheEngine, @modelEngine, @myAddress, @sendFunction, @registerForUpdatesFunction)->
     @zones = new lru(lruopts)
     @zoneItemQuadTrees = {}
     @zoneEntityQuadTrees = {}
     @zones.on 'evict', @onZoneEvicted
+    @registerForUpdatesFunction(@)
     @siblings = new Siblings(@myAddress, @cacheEngine, @modelEngine, @sendFunction)
 
 
@@ -32,29 +33,45 @@ class Tiler
     @siblings.deRegisterAsSiblingForZone(zoneObj)
 
   # This is called by a listener (for exmaple a spincycle target) that is the recipient of a call made using
-  # the provided sendFunction, but form another replica
-  onSiblingUpdate:(command)=>
-    console.log 'Tiler.onSiblingUpdate called'
-    arg1 = JSON.pars(command.arg1)
-    arg2 = JSON.pars(command.arg2)
+  # the provided sendFunction, but from another replica
+  onSiblingUpdate:(_command)=>
+    command = JSON.parse(_command)
+    console.log 'Tiler.onSiblingUpdate called for tiler '+@myAddress
+    #console.dir command
+    arg1 = command.arg1
+    arg2 = command.arg2
     switch command.cmd
       when Siblings.CMD_SET_TILE      then @setTileAt(arg1, arg2, true)
       when Siblings.CMD_ADD_ITEM      then @addItem(arg1, arg2, true)
       when Siblings.CMD_REMOVE_ITEM   then @removeItem(arg1, arg2, true)
-      when Siblings.CMD_UPDATE_ITEM   then @updateItem(arg1, arg2, true)
+      when Siblings.CMD_UPDATE_ITEM
+        # TODO: look up item in modelEngine and update
+        console.log 'got external update to item (unimplemented)'
       when Siblings.CMD_ADD_ENTITY    then @addEntity(arg1, arg2, true)
       when Siblings.CMD_REMOVE_ENTITY then @removeEntity(arg1, arg2, true)
-      when Siblings.CMD_UPDATE_ENTITY then @updateEntity(arg1, arg2, true)
-
+      when Siblings.CMD_UPDATE_ENTITY
+        # TODO: look up entity in modelEngine and update
+        console.log 'got external update to entity (unimplemented)'
 
 
 #
 # ---- NOTE: None of these get/update/add/remove methods serializes the Zone. This must be done explicitly afterwards by the caller!!
 #
+  createItem:(level, itemRecord)=>
+    q = defer()
+    if not level or not itemRecord or not itemRecord.x or not itemRecord.y
+      q.reject('Tiler.createItem got bad item!!')
+    else
+      @modelEngine.createItem(itemRecord).then (itemObj)=>
+        itemObj.serialize()
+        @addItem(level, itemObj) # Will propagate
+        q.resolve(itemObj)
+    q
+
   addItem:(level, item, doNotPropagate)=>
     q = defer()
     @setSomething(level, item, @zoneItemQuadTrees, q).then ()=>
-      if not doNotPropagate then @siblings.sendCommand Siblings.CMD_ADD_ITEM,level,item
+      if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_ADD_ITEM,level,item
     q
 
   removeItem:(level, item, doNotPropagate)=>
@@ -63,8 +80,21 @@ class Tiler
       if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_REMOVE_ITEM,level,item
     q
 
+  # Since we're getting live objects, what update does is jus making sure to propagate local changes to siblings
   updateItem:(level, item, doNotPropagate)=>
-    @resolveZoneFor(level, item.x, item.y).then (zone)=>
+    if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_UPDATE_ITEM,level,item
+    @modelEngine.updateObject(item)
+
+  createEntity:(level, entityRecord)=>
+    q = defer()
+    if not entity or not entityRecord or not entityRecord.x or not entityRecord.y
+      q.reject('Tiler.createEntity got bad entity!!')
+    else
+      @modelEngine.createEntity(entityRecord).then (entityObj)=>
+        entityObj.serialize()
+        @addEntity(level, entityObj) # Will propagate
+        q.resolve(entityObj)
+    q
 
   addEntity:(level, entity, doNotPropagate)=>
     q = defer()
@@ -79,11 +109,12 @@ class Tiler
     q
 
   updateEntity:(level, entity, doNotPropagate)=>
-    @resolveZoneFor(level, entity.x, entity.y).then (zone)=>
+    if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_UPDATE_ENTITY,level,entity
+    @modelEngine.updateObject(entity)
 
   getItemAt: (level, x, y) =>
     q = defer()
-    if not level or not x or not y
+    if not level or (not x and x != 0) or (not y and y !=0)
       q.reject('Tiler.getTileAt got wrong parameters ')
     else
       @getSomething(level, x, y, @zoneItemQuadTrees, q)
@@ -91,7 +122,7 @@ class Tiler
 
   getEntityAt: (level, x, y) =>
     q = defer()
-    if not level or not x or not y
+    if not level or (not x and x != 0) or (not y and y !=0)
       q.reject('Tiler.getTileAt got wrong parameters ')
     else
       @getSomething(level, x, y, @zoneEntityQuadTrees, q)
@@ -99,7 +130,7 @@ class Tiler
 
   getTileAt:(level,x,y)=>
     q = defer()
-    if not level or not x or not y
+    if not level or (not x and x != 0) or (not y and y !=0)
       q.reject('Tiler.getTileAt wrong parameters ')
     else
       @resolveZoneFor(level,x,y).then(
@@ -113,8 +144,10 @@ class Tiler
 
   # NOTE: this method does not serialize the zone, so either serialize explicitly after this call or use setAndPersistTiles instead
   setTileAt:(level, tile, doNotPropagate)=>
+    console.log 'setTileAt for tiler '+@myAddress+' called'
+    #console.dir arguments
     q = defer()
-    if not tile or (tile and not tile.type) or not tile.x or not tile.y
+    if not tile or (tile and not tile.type) or (not tile.x and tile.x != 0) or (not tile.y and tile.y !=0)
       q.reject("bad tile format")
     else
       x = tile.x
@@ -169,12 +202,10 @@ class Tiler
       q.resolve(lruZone)
     else
       # check to see if sibling instance have created the zone already
-      #console.log 'could not resolve zoneObj for '+tileid
-      #console.dir @zones
       @cacheEngine.get(tileid).then (exists) =>
         if exists
-          @storageEngine.find('Zone', 'tileid', tileid).then (zone) ->
-            if zone
+          @storageEngine.find('Zone', 'tileid', tileid).then (zoneObj) ->
+            if zoneObj
               registerZone(q, zoneObj)
             else
               console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
@@ -190,6 +221,7 @@ class Tiler
   createNewZone: (tileid) =>
     q = defer()
     newzone =
+      name: 'Zone_'+tileid
       type: 'Zone'
       id: tileid
       tileid: tileid

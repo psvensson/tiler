@@ -13,11 +13,14 @@ class TilerSiblings
   constructor:(@myAddress, @cacheEngine, @modelEngine, @sendFunction)->
 
   sendCommand:(zoneObj, cmd, arg1, arg2)=>
+    #console.log 'TilerSiblings.sendCommand called for '+cmd
+    #console.dir arguments
     @getSiblingsForZone(zoneObj).then (siblings) =>
-      command = {cmd: cmd, arg1: JSON.stringify((arg1), arg2: JSON.stringify(arg2))}
+      console.log 'TilerSiblings.sendCommand got these siblings:'+siblings
+      command = {cmd: cmd, arg1: arg1, arg2: arg2}
       if arg1.toClient then command.arg1 = arg1.toClient()
       if arg2.toClient then command.arg2 = arg2.toClient()
-      siblings.forEach (sibling) -> @sendFunction(sibling, command)
+      siblings.forEach (sibling) => if sibling isnt @myAddress then @sendFunction(sibling, command)
 
   registerAsSiblingForZone: (zoneObj) =>
     @cacheEngine.set 'zonereplica_'+zoneObj.tileid+':'+@myAddress, @myAddress

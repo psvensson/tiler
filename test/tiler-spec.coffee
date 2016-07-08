@@ -8,6 +8,7 @@ describe "Tiler test", ()->
 
   storage = {}
   cache = {}
+  tileCluster = {}
   tiler = undefined
 
   storageEngine =
@@ -39,23 +40,41 @@ describe "Tiler test", ()->
       cache[id] = obj
       q.resolve()
       q
-    getAllValuesFor: (wildcard)->
+    getAllValuesFor: (_wildcard)->
+      wildcard = _wildcard.replace('*','')
+      #console.log 'cacheEngine.getAllValuesFor called'
+      #console.dir cache
       q = defer()
       rv = []
       for k,v of cache
-        if k.indexOf(wildcard) > -1 then rv.push v
+        match = k.indexOf(wildcard)
+        #console.log 'match for '+k+' and '+wildcard+' was '+match
+        if match > -1 then rv.push v
       q.resolve(rv)
       q
 
   modelEngine =
-    createZone: (obj)->
+    createAnything: (obj)->
       obj.serialize = ()-> storageEngine.set(obj.id, obj)
       q = defer()
       q.resolve(obj)
       q
+    createZone: (obj)-> modelEngine.createAnything(obj)
+    createItem: (obj)-> modelEngine.createAnything(obj)
+    createEntity: (obj)-> modelEngine.createAnything(obj)
+    
+
+  sendFunction = (adr, command)->
+    sibling = tileCluster[adr]
+    #console.log 'sendFunction sends'
+    #console.dir command
+    sibling.onSiblingUpdate(JSON.stringify(command))
+
+  registerForUpdatesFunction = (tiler)->
+    tileCluster[tiler.myAddress] = tiler
 
   before (done)->
-    tiler = new Tiler(storageEngine, cacheEngine, modelEngine)
+    tiler = new Tiler(storageEngine, cacheEngine, modelEngine, "17", sendFunction, registerForUpdatesFunction)
     done()
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -63,6 +82,16 @@ describe "Tiler test", ()->
   it "should be able to calculate zoneid for positive x,y", (done)->
     zid = tiler.getZoneIdFor(1,23,25)
     expect(zid).to.equal('1_20_20')
+    done()
+
+  it "should be able to calculate zoneid for 0,0", (done)->
+    zid = tiler.getZoneIdFor(1,0,0)
+    expect(zid).to.equal('1_0_0')
+    done()
+
+  it "should be able to calculate zoneid for 1,1", (done)->
+    zid = tiler.getZoneIdFor(1,1,1)
+    expect(zid).to.equal('1_0_0')
     done()
 
   it "should be able to calculate zoneid for negative x,y", (done)->
@@ -92,7 +121,7 @@ describe "Tiler test", ()->
         done()
 
   it "should be able get a tile", (done)->
-    tiler.getTileAt(1,79,94, {id:'foo'}).then (tile)->
+    tiler.getTileAt(1,79,94).then (tile)->
       expect(tile.id).to.equal('foo')
       done()
 
@@ -129,9 +158,21 @@ describe "Tiler test", ()->
       expect(item).to.exist
       done()
 
-  it "should be able remove an item", (done)->
+  it "should be able to remove an item", (done)->
     item = {name: 'item 1', x:30, y: 40, height:1, width: 1}
     tiler.removeItem(1, item).then (result)->
       tiler.getItemAt(1, 30, 40).then (olditem)->
         expect(olditem).to.not.exist
         done()
+
+
+  it "should be able to set up two sibling Tile engines and have updates on one propagate to the other", (done)->
+    tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "a", sendFunction, registerForUpdatesFunction)
+    tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "b", sendFunction, registerForUpdatesFunction)
+    # prime zones, so each resolve the same
+    tiler1.getTileAt(1, 0, 0).then ()->
+      tiler2.getTileAt(1, 0, 0).then ()->
+        tiler1.setTileAt(1, {id:'xxyyzz', type:'Tile', x:1, y:1}).then ()->
+          tiler2.getTileAt(1, 1, 1).then (tile)->
+            expect(tile).to.exist
+            done()

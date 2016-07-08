@@ -11,9 +11,10 @@
   debug = process.env['DEBUG'];
 
   describe("Tiler test", function() {
-    var cache, cacheEngine, modelEngine, storage, storageEngine, tiler;
+    var cache, cacheEngine, modelEngine, registerForUpdatesFunction, sendFunction, storage, storageEngine, tileCluster, tiler;
     storage = {};
     cache = {};
+    tileCluster = {};
     tiler = void 0;
     storageEngine = {
       find: function(type, prop, val) {
@@ -60,13 +61,15 @@
         q.resolve();
         return q;
       },
-      getAllValuesFor: function(wildcard) {
-        var k, q, rv, v;
+      getAllValuesFor: function(_wildcard) {
+        var k, match, q, rv, v, wildcard;
+        wildcard = _wildcard.replace('*', '');
         q = defer();
         rv = [];
         for (k in cache) {
           v = cache[k];
-          if (k.indexOf(wildcard) > -1) {
+          match = k.indexOf(wildcard);
+          if (match > -1) {
             rv.push(v);
           }
         }
@@ -75,7 +78,7 @@
       }
     };
     modelEngine = {
-      createZone: function(obj) {
+      createAnything: function(obj) {
         var q;
         obj.serialize = function() {
           return storageEngine.set(obj.id, obj);
@@ -83,16 +86,45 @@
         q = defer();
         q.resolve(obj);
         return q;
+      },
+      createZone: function(obj) {
+        return modelEngine.createAnything(obj);
+      },
+      createItem: function(obj) {
+        return modelEngine.createAnything(obj);
+      },
+      createEntity: function(obj) {
+        return modelEngine.createAnything(obj);
       }
     };
+    sendFunction = function(adr, command) {
+      var sibling;
+      sibling = tileCluster[adr];
+      return sibling.onSiblingUpdate(JSON.stringify(command));
+    };
+    registerForUpdatesFunction = function(tiler) {
+      return tileCluster[tiler.myAddress] = tiler;
+    };
     before(function(done) {
-      tiler = new Tiler(storageEngine, cacheEngine, modelEngine);
+      tiler = new Tiler(storageEngine, cacheEngine, modelEngine, "17", sendFunction, registerForUpdatesFunction);
       return done();
     });
     it("should be able to calculate zoneid for positive x,y", function(done) {
       var zid;
       zid = tiler.getZoneIdFor(1, 23, 25);
       expect(zid).to.equal('1_20_20');
+      return done();
+    });
+    it("should be able to calculate zoneid for 0,0", function(done) {
+      var zid;
+      zid = tiler.getZoneIdFor(1, 0, 0);
+      expect(zid).to.equal('1_0_0');
+      return done();
+    });
+    it("should be able to calculate zoneid for 1,1", function(done) {
+      var zid;
+      zid = tiler.getZoneIdFor(1, 1, 1);
+      expect(zid).to.equal('1_0_0');
       return done();
     });
     it("should be able to calculate zoneid for negative x,y", function(done) {
@@ -133,9 +165,7 @@
       });
     });
     it("should be able get a tile", function(done) {
-      return tiler.getTileAt(1, 79, 94, {
-        id: 'foo'
-      }).then(function(tile) {
+      return tiler.getTileAt(1, 79, 94).then(function(tile) {
         expect(tile.id).to.equal('foo');
         return done();
       });
@@ -212,7 +242,7 @@
         return done();
       });
     });
-    return it("should be able remove an item", function(done) {
+    it("should be able to remove an item", function(done) {
       var item;
       item = {
         name: 'item 1',
@@ -225,6 +255,26 @@
         return tiler.getItemAt(1, 30, 40).then(function(olditem) {
           expect(olditem).to.not.exist;
           return done();
+        });
+      });
+    });
+    return it("should be able to set up two sibling Tile engines and have updates on one propagate to the other", function(done) {
+      var tiler1, tiler2;
+      tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "a", sendFunction, registerForUpdatesFunction);
+      tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "b", sendFunction, registerForUpdatesFunction);
+      return tiler1.getTileAt(1, 0, 0).then(function() {
+        return tiler2.getTileAt(1, 0, 0).then(function() {
+          return tiler1.setTileAt(1, {
+            id: 'xxyyzz',
+            type: 'Tile',
+            x: 1,
+            y: 1
+          }).then(function() {
+            return tiler2.getTileAt(1, 1, 1).then(function(tile) {
+              expect(tile).to.exist;
+              return done();
+            });
+          });
         });
       });
     });
