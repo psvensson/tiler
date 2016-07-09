@@ -4,6 +4,8 @@ all             = require('node-promise').allOrNone
 lru             = require('lru')
 Siblings        = require('./TilerSiblings')
 
+debug = process.env["DEBUG"]
+
 lruopts =
   max: 1000
   maxAgeInMilliseconds: 1000 * 60 * 60 * 24 * 4
@@ -144,10 +146,11 @@ class Tiler
 
   # NOTE: this method does not serialize the zone, so either serialize explicitly after this call or use setAndPersistTiles instead
   setTileAt:(level, tile, doNotPropagate)=>
-    console.log 'setTileAt for tiler '+@myAddress+' called'
+    if debug then console.log 'setTileAt for tiler '+@myAddress+' called'
     #console.dir arguments
     q = defer()
     if not tile or (tile and not tile.type) or (not tile.x and tile.x != 0) or (not tile.y and tile.y !=0)
+      if debug then console.dir tile
       q.reject("bad tile format")
     else
       x = tile.x
