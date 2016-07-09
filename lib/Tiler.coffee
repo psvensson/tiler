@@ -227,7 +227,7 @@ class Tiler
       tileid: tileid
       items: []
       entities: []
-      tiles: {}
+      tiles: []
 
     @modelEngine.createZone(newzone).then (zoneObj)=>
       zoneObj.serialize()
