@@ -176,3 +176,15 @@ describe "Tiler test", ()->
           tiler2.getTileAt(1, 1, 1).then (tile)->
             expect(tile).to.exist
             done()
+
+  it "should be able set a tile and have coresponding zone added to dirtyZones", (done)->
+    tiler.setTileAt(1, {id:'foo', type: 'bar',x:79, y:94}).then ()->
+      zone =  tiler.dirtyZones['1_60_80']
+      expect(zone).to.exist
+      done()
+
+  it "should be able set a tile and persist one or more dirtyZones", (done)->
+    tiler.setTileAt(1, {id:'foo', type: 'bar',x:79, y:94}).then ()->
+      tiler.persistDirtyZones().then (howmany)->
+        expect(howmany).to.be.gt(0)
+        done()

@@ -258,7 +258,7 @@
         });
       });
     });
-    return it("should be able to set up two sibling Tile engines and have updates on one propagate to the other", function(done) {
+    it("should be able to set up two sibling Tile engines and have updates on one propagate to the other", function(done) {
       var tiler1, tiler2;
       tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "a", sendFunction, registerForUpdatesFunction);
       tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "b", sendFunction, registerForUpdatesFunction);
@@ -275,6 +275,32 @@
               return done();
             });
           });
+        });
+      });
+    });
+    it("should be able set a tile and have coresponding zone added to dirtyZones", function(done) {
+      return tiler.setTileAt(1, {
+        id: 'foo',
+        type: 'bar',
+        x: 79,
+        y: 94
+      }).then(function() {
+        var zone;
+        zone = tiler.dirtyZones['1_60_80'];
+        expect(zone).to.exist;
+        return done();
+      });
+    });
+    return it("should be able set a tile and persist one or more dirtyZones", function(done) {
+      return tiler.setTileAt(1, {
+        id: 'foo',
+        type: 'bar',
+        x: 79,
+        y: 94
+      }).then(function() {
+        return tiler.persistDirtyZones().then(function(howmany) {
+          expect(howmany).to.be.gt(0);
+          return done();
         });
       });
     });
