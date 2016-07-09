@@ -36,9 +36,17 @@ class Tiler
     @siblings.deRegisterAsSiblingForZone(zoneObj)
 
   persistDirtyZones: () =>
+    q = defer()
+    count = 0
+    for a,b of @dirtyZones
+      count++
     for k,zone of @dirtyZones
-      zone.serialize()
-    @dirtyZones = {}
+      console.log 'persistDirtyZone persisting '+zone.name
+      zone.serialize().then ()=>
+        if --count == 0
+          @dirtyZones = {}
+          q.resolve()
+    q
 
   # This is called by a listener (for exmaple a spincycle target) that is the recipient of a call made using
   # the provided sendFunction, but from another replica
