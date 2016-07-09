@@ -23,6 +23,7 @@ TODO:
 class Tiler
 
   constructor:(@storageEngine, @cacheEngine, @modelEngine, @myAddress, @sendFunction, @registerForUpdatesFunction)->
+    @dirtyZones = {}
     @zones = new lru(lruopts)
     @zoneItemQuadTrees = {}
     @zoneEntityQuadTrees = {}
@@ -33,6 +34,11 @@ class Tiler
 
   onZoneEvicted:(zoneObj) =>
     @siblings.deRegisterAsSiblingForZone(zoneObj)
+
+  persistDirtyZones: () =>
+    for k,zone of @dirtyZones
+      zone.serialize()
+    @dirtyZones = {}
 
   # This is called by a listener (for exmaple a spincycle target) that is the recipient of a call made using
   # the provided sendFunction, but from another replica
@@ -72,13 +78,13 @@ class Tiler
 
   addItem:(level, item, doNotPropagate)=>
     q = defer()
-    @setSomething(level, item, @zoneItemQuadTrees, q).then ()=>
+    @setSomething(level, item, @zoneItemQuadTrees, 'items', q).then ()=>
       if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_ADD_ITEM,level,item
     q
 
   removeItem:(level, item, doNotPropagate)=>
     q = defer()
-    @removeSomething(level, item, @zoneItemQuadTrees, q).then (zoneObj)=>
+    @removeSomething(level, item, @zoneItemQuadTrees, 'items', q).then (zoneObj)=>
       if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_REMOVE_ITEM,level,item
     q
 
@@ -100,13 +106,13 @@ class Tiler
 
   addEntity:(level, entity, doNotPropagate)=>
     q = defer()
-    @setSomething(level, entity, @zoneEntityQuadTrees, q).then (zoneObj)=>
+    @setSomething(level, entity, @zoneEntityQuadTrees, 'entities', q).then (zoneObj)=>
       if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_ADD_ENTITY,level,entity
     q
 
   removeEntity:(level, entity, doNotPropagate)=>
     q = defer()
-    @removeSomething(level, entity, @zoneEntityQuadTrees, q).then (zoneObj)=>
+    @removeSomething(level, entity, @zoneEntityQuadTrees, 'entities',  q).then (zoneObj)=>
       if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_REMOVE_ENTITY,level,entity
     q
 
@@ -252,13 +258,21 @@ class Tiler
       q.reject('could not resolve zone tileid for '+(arguments.join('_')))
     )
 
-  setSomething:(level, something, qthash, q) =>
+  setSomething:(level, something, qthash, propname, q) =>
     qq = defer()
     @resolveZoneFor(level, something.x, something.y).then(
       (zoneObj)=>
         if zoneObj
           qt = qthash[zoneObj.tileid]
           qt.insert(something)
+          # actually insert it into zone too!!!
+          stuff = zoneObj[propname]
+          for what,i in stuff
+            if what.id == something.id
+              found = true
+              stuff[i] = something
+          if not found then stuff.push something
+          @dirtyZones[zoneObj.tileid] = zoneObj
           q.resolve(true)
           qq.resolve(zoneObj)
     ,()->
@@ -268,17 +282,25 @@ class Tiler
     )
     qq
 
-  removeSomething:(level, something, qthash, q) =>
+  removeSomething:(level, something, qthash, propname, q) =>
     qq = defer()
     @resolveZoneFor(level, something.x, something.y).then(
       (zoneObj)=>
         if zoneObj
           qt = qthash[zoneObj.tileid]
           qt.remove(something)
+          @dirtyZones[zoneObj.tileid] = zoneObj
+          stuff = zoneObj[propname]
+          index = -1
+          for what,i in stuff
+            if what.id == something.id
+              index = i
+              break
+          if index > -1 then stuff.splice index,1
           q.resolve(true)
           qq.resolve(zoneObj)
     ,()->
-      console.log 'setSomething got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
+      console.log 'removeSomething got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
       q.reject('could not resolve zone tileid for level '+level+' and something '+something.type+' '+ something.id)
     )
     qq
