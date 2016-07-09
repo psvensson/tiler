@@ -40,6 +40,7 @@ class Tiler
     count = 0
     for a,b of @dirtyZones
       count++
+    console.log 'Tiler.persistDirtyZones persisting '+count+' zones'
     for k,zone of @dirtyZones
       console.log 'persistDirtyZone persisting '+zone.name
       zone.serialize().then ()=>

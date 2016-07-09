@@ -17,7 +17,7 @@ class TilerSiblings
     #console.log 'TilerSiblings.sendCommand called for '+cmd
     #console.dir arguments
     @getSiblingsForZone(zoneObj).then (siblings) =>
-      if debug then console.log 'TilerSiblings.sendCommand got these siblings:'+JSON.stringify(siblings)
+      #if debug then console.log 'TilerSiblings.sendCommand got these siblings:'+JSON.stringify(siblings)
       command = {cmd: cmd, arg1: arg1, arg2: arg2}
       if arg1.toClient then command.arg1 = arg1.toClient()
       if arg2.toClient then command.arg2 = arg2.toClient()
