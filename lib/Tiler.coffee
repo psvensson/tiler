@@ -171,6 +171,7 @@ class Tiler
       y = tile.y
       @resolveZoneFor(level,x,y).then (zone)=>
         zone.tiles[x+'_'+y] = tile
+        @dirtyZones[zoneObj.tileid] = zoneObj
         if not doNotPropagate then @siblings.sendCommand zone, Siblings.CMD_SET_TILE,level,tile
         q.resolve(tile)
     q
