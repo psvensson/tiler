@@ -117,7 +117,7 @@ describe "Tiler test", ()->
   it "should be able set a tile", (done)->
     tiler.setTileAt(1, {id:'foo', type: 'bar',x:79, y:94}).then ()->
       tiler.resolveZoneFor(1,79,94).then (zoneObj)->
-        expect(zoneObj.tiles['79_94']).to.exist
+        expect(tiler.zoneTiles[zoneObj.tileid]['79_94']).to.exist
         done()
 
   it "should be able get a tile", (done)->
@@ -173,9 +173,13 @@ describe "Tiler test", ()->
     tiler1.getTileAt(1, 0, 0).then ()->
       tiler2.getTileAt(1, 0, 0).then ()->
         tiler1.setTileAt(1, {id:'xxyyzz', type:'Tile', x:1, y:1}).then ()->
-          tiler2.getTileAt(1, 1, 1).then (tile)->
-            expect(tile).to.exist
-            done()
+          setTimeout(
+            ()->
+              tiler2.getTileAt(1, 1, 1).then (tile)->
+                expect(tile).to.exist
+                done()
+            ,5
+          )
 
   it "should be able set a tile and have coresponding zone added to dirtyZones", (done)->
     tiler.setTileAt(1, {id:'foo', type: 'bar',x:79, y:94}).then ()->

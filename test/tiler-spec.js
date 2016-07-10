@@ -159,7 +159,7 @@
         y: 94
       }).then(function() {
         return tiler.resolveZoneFor(1, 79, 94).then(function(zoneObj) {
-          expect(zoneObj.tiles['79_94']).to.exist;
+          expect(tiler.zoneTiles[zoneObj.tileid]['79_94']).to.exist;
           return done();
         });
       });
@@ -270,10 +270,12 @@
             x: 1,
             y: 1
           }).then(function() {
-            return tiler2.getTileAt(1, 1, 1).then(function(tile) {
-              expect(tile).to.exist;
-              return done();
-            });
+            return setTimeout(function() {
+              return tiler2.getTileAt(1, 1, 1).then(function(tile) {
+                expect(tile).to.exist;
+                return done();
+              });
+            }, 5);
           });
         });
       });

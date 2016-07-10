@@ -24,6 +24,7 @@ class TilerSiblings
       siblings.forEach (sibling) => if sibling isnt @myAddress then @sendFunction(sibling, command)
 
   registerAsSiblingForZone: (zoneObj) =>
+    console.log 'TilerSiblings.registerAsSiblingForZone '+zoneObj.tileid+' myAddress = '+@myAddress
     @cacheEngine.set 'zonereplica_'+zoneObj.tileid+':'+@myAddress, @myAddress
 
   deRegisterAsSiblingForZone: (zoneObj) =>

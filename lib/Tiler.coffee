@@ -24,9 +24,12 @@ class Tiler
 
   constructor:(@storageEngine, @cacheEngine, @modelEngine, @myAddress, @sendFunction, @registerForUpdatesFunction)->
     @dirtyZones = {}
+    @zoneUnderConstruction = {}
+    @postContructionCallbacks = {}
     @zones = new lru(lruopts)
     @zoneItemQuadTrees = {}
     @zoneEntityQuadTrees = {}
+    @zoneTiles = {}
     @zones.on 'evict', @onZoneEvicted
     @registerForUpdatesFunction(@)
     @siblings = new Siblings(@myAddress, @cacheEngine, @modelEngine, @sendFunction)
@@ -44,7 +47,7 @@ class Tiler
     console.log 'Tiler.persistDirtyZones persisting '+count+' zones'
     if count == 0 then q.resolve(0)
     for k,zone of @dirtyZones
-      console.log 'persistDirtyZone persisting '+zone.name
+      #console.log 'persistDirtyZone persisting '+zone.name
       zone.serialize().then ()=>
         if --count == 0
           @dirtyZones = {}
@@ -148,13 +151,18 @@ class Tiler
     q
 
   getTileAt:(level,x,y)=>
+    #console.log '............................getTileAt for '+level+' '+x+' '+y
     q = defer()
     if not level or (not x and x != 0) or (not y and y !=0)
       q.reject('Tiler.getTileAt wrong parameters ')
     else
       @resolveZoneFor(level,x,y).then(
-        (zone)->
-          if zone then q.resolve(zone.tiles[x+'_'+y]) else q.resolve(BAD_TILE)
+        (zone)=>
+          if zone and zone.tileid
+            ztiles = @zoneTiles[zone.tileid]
+            q.resolve(ztiles[x+'_'+y])
+          else
+            q.resolve(BAD_TILE)
         ,()->
           console.log 'getTileAt got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
           q.reject('could not resolve zone tileid for '+(arguments.join('_')))
@@ -173,7 +181,16 @@ class Tiler
       x = tile.x
       y = tile.y
       @resolveZoneFor(level,x,y).then (zone)=>
-        zone.tiles[x+'_'+y] = tile
+        ztiles = @zoneTiles[zone.tileid] or []
+        ztiles[x+'_'+y] = tile
+        @zoneTiles[zone.tileid] = ztiles
+        found = false
+        for i,oldtile in zone.tiles
+          if oldtile.x == x and oldtile.y == y
+            zone.tiles.splice i,1,tile
+            found = true
+            break
+        if not found then zone.tiles.push tile
         @dirtyZones[zone.tileid] = zone
         if not doNotPropagate then @siblings.sendCommand zone, Siblings.CMD_SET_TILE,level,tile
         q.resolve(tile)
@@ -210,31 +227,56 @@ class Tiler
       y = arr[2]
       itemQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
       @zoneItemQuadTrees[zoneObj.tileid] = itemQT
+      zoneObj.items.forEach (item) => @setSomething(level, item, itemQT, 'items', q, true).then (zo)=>
       entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
       @zoneEntityQuadTrees[zoneObj.tileid] = entityQT
+      zoneObj.entities.forEach (entity) => @setSomething(level, entity, entityQT, 'entities', q, true).then (zo)=>
+      ztiles = @zoneTiles[zoneObj.tileid] or {}
+      zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
+      @zoneTiles[zoneObj.tileid] = ztiles
       #console.log 'registerOne adds item and entity QTs for tileid '+zoneObj.tileid
-      @zones.set tileid,zoneObj
+      @zones.set zoneObj.tileid,zoneObj
       @siblings.registerAsSiblingForZone(zoneObj)
+      if @zoneUnderConstruction[zoneObj.tileid] = true
+        delete @zoneUnderConstruction[zoneObj.tileid]
+        cbs = @postContructionCallbacks[zoneObj.tileid] or []
+        cbs.forEach (cb) =>
+          #console.log '<------ resolving paused lookup of zone'
+          cb()
       q.resolve(zoneObj)
 
-    tileid = @getZoneIdFor(level,x,y)
-    lruZone = @zones.get tileid
-    if lruZone
-      q.resolve(lruZone)
-    else
-      # check to see if sibling instance have created the zone already
-      @cacheEngine.get(tileid).then (exists) =>
-        if exists
-          @storageEngine.find('Zone', 'tileid', tileid).then (zoneObj) ->
-            if zoneObj
+    lookupZone = (tileid,q)=>
+      lruZone = @zones.get tileid
+      if lruZone
+        #console.log 'resolving '+tileid+' from lru'
+        q.resolve(lruZone)
+      else
+        @zoneUnderConstruction[tileid] = true
+        # check to see if sibling instance have created the zone already
+        @cacheEngine.get(tileid).then (exists) =>
+          if exists
+            @storageEngine.find('Zone', 'tileid', tileid).then (zoneObj) ->
+              if zoneObj
+                #console.log 'resolving '+tileid+' from db'
+                registerZone(q, zoneObj)
+              else
+                console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
+                q.reject(BAD_TILE)
+          else
+            #console.log 'zone '+tileid+' ****************** not found, so creating new..'
+            @createNewZone(tileid).then (zoneObj) =>
               registerZone(q, zoneObj)
-            else
-              console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
-              q.reject(BAD_TILE)
-        else
-          @createNewZone(tileid).then (zoneObj) =>
-            registerZone(q, zoneObj)
 
+    tid = @getZoneIdFor(level,x,y)
+    underConstruction = @zoneUnderConstruction[tid]
+    #console.log 'resolve '+tid+' under construction = '+underConstruction
+    if underConstruction
+      #console.log '------> waiting for zone construction for '+tid
+      cbs = @postContructionCallbacks[tid] or []
+      cbs.push ()->lookupZone(tid, q)
+      @postContructionCallbacks[tid] = cbs
+    else
+      lookupZone(tid, q)
     q
 
   #---------------------------------------------------------------------------------------------------------------------
@@ -270,21 +312,22 @@ class Tiler
       q.reject('could not resolve zone tileid for '+(arguments.join('_')))
     )
 
-  setSomething:(level, something, qthash, propname, q) =>
+  setSomething:(level, something, qthash, propname, q, skipadd) =>
     qq = defer()
     @resolveZoneFor(level, something.x, something.y).then(
       (zoneObj)=>
         if zoneObj
           qt = qthash[zoneObj.tileid]
           qt.insert(something)
-          # actually insert it into zone too!!!
-          stuff = zoneObj[propname]
-          for what,i in stuff
-            if what.id == something.id
-              found = true
-              stuff[i] = something
-          if not found then stuff.push something
-          @dirtyZones[zoneObj.tileid] = zoneObj
+          if not skipadd
+            # actually insert it into zone too!!!
+            stuff = zoneObj[propname]
+            for what,i in stuff
+              if what.id == something.id
+                found = true
+                stuff[i] = something
+            if not found then stuff.push something
+            @dirtyZones[zoneObj.tileid] = zoneObj
           q.resolve(true)
           qq.resolve(zoneObj)
     ,()->
