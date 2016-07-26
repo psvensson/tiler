@@ -66,15 +66,10 @@ class Tiler
       when Siblings.CMD_SET_TILE      then @setTileAt(arg1, arg2, true)
       when Siblings.CMD_ADD_ITEM      then @addItem(arg1, arg2, true)
       when Siblings.CMD_REMOVE_ITEM   then @removeItem(arg1, arg2, true)
-      when Siblings.CMD_UPDATE_ITEM
-        # TODO: look up item in modelEngine and update
-        console.log 'got external update to item (unimplemented)'
+      when Siblings.CMD_UPDATE_ITEM   then @updateItem(arg1, arg2, true)
       when Siblings.CMD_ADD_ENTITY    then @addEntity(arg1, arg2, true)
       when Siblings.CMD_REMOVE_ENTITY then @removeEntity(arg1, arg2, true)
-      when Siblings.CMD_UPDATE_ENTITY
-        # TODO: look up entity in modelEngine and update
-        console.log 'got external update to entity (unimplemented)'
-
+      when Siblings.CMD_UPDATE_ENTITY then @updateEntity(arg1, arg2, true)
 
 #
 # ---- NOTE: None of these get/update/add/remove methods serializes the Zone. This must be done explicitly afterwards by the caller!!
@@ -92,7 +87,7 @@ class Tiler
 
   addItem:(level, item, doNotPropagate)=>
     q = defer()
-    @setSomething(level, item, @zoneItemQuadTrees, 'items', q).then ()=>
+    @_setSomething(level, item, @zoneItemQuadTrees, 'items', q).then ()=>
       if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_ADD_ITEM,level,item
     q
 
@@ -120,7 +115,7 @@ class Tiler
 
   addEntity:(level, entity, doNotPropagate)=>
     q = defer()
-    @setSomething(level, entity, @zoneEntityQuadTrees, 'entities', q).then (zoneObj)=>
+    @_setSomething(level, entity, @zoneEntityQuadTrees, 'entities', q).then (zoneObj)=>
       if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_ADD_ENTITY,level,entity
     q
 
@@ -139,7 +134,7 @@ class Tiler
     if not level or (not x and x != 0) or (not y and y !=0)
       q.reject('Tiler.getTileAt got wrong parameters ')
     else
-      @getSomething(level, x, y, @zoneItemQuadTrees, q)
+      @_getSomething(level, x, y, @zoneItemQuadTrees, q)
     q
 
   getEntityAt: (level, x, y) =>
@@ -147,7 +142,7 @@ class Tiler
     if not level or (not x and x != 0) or (not y and y !=0)
       q.reject('Tiler.getTileAt got wrong parameters ')
     else
-      @getSomething(level, x, y, @zoneEntityQuadTrees, q)
+      @_getSomething(level, x, y, @zoneEntityQuadTrees, q)
     q
 
   getTileAt:(level,x,y)=>
@@ -227,10 +222,10 @@ class Tiler
       y = arr[2]
       itemQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
       @zoneItemQuadTrees[zoneObj.tileid] = itemQT
-      zoneObj.items.forEach (item) => @setSomething(level, item, itemQT, 'items', q, true).then (zo)=>
+      zoneObj.items.forEach (item) => @_setSomething(level, item, itemQT, 'items', q, true).then (zo)=>
       entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
       @zoneEntityQuadTrees[zoneObj.tileid] = entityQT
-      zoneObj.entities.forEach (entity) => @setSomething(level, entity, entityQT, 'entities', q, true).then (zo)=>
+      zoneObj.entities.forEach (entity) => @_setSomething(level, entity, entityQT, 'entities', q, true).then (zo)=>
       ztiles = @zoneTiles[zoneObj.tileid] or {}
       zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
       @zoneTiles[zoneObj.tileid] = ztiles
@@ -300,7 +295,7 @@ class Tiler
         q.resolve(zoneObj)
     q
 
-  getSomething:(level, x, y, qthash, q) =>
+  _getSomething:(level, x, y, qthash, q) =>
     @resolveZoneFor(level,x,y).then(
       (zoneObj)=>
         if zoneObj
@@ -308,11 +303,11 @@ class Tiler
           something = qt.retrieve({x: x, y: y})
           q.resolve(something[0])
     ,()->
-      console.log 'getSomething got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
+      console.log '_getSomething got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
       q.reject('could not resolve zone tileid for '+(arguments.join('_')))
     )
 
-  setSomething:(level, something, qthash, propname, q, skipadd) =>
+  _setSomething:(level, something, qthash, propname, q, skipadd) =>
     qq = defer()
     @resolveZoneFor(level, something.x, something.y).then(
       (zoneObj)=>
@@ -331,7 +326,7 @@ class Tiler
           q.resolve(true)
           qq.resolve(zoneObj)
     ,()->
-      console.log 'setSomething got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
+      console.log '_setSomething got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
       q.reject('could not resolve zone tileid for level '+level+' and something '+something.type+' '+ something.id)
       qq.resolve(false)
     )

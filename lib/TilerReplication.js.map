@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "file": "TilerReplication.js",
+  "sourceRoot": "",
+  "sources": [
+    "TilerReplication.coffee"
+  ],
+  "names": [],
+  "mappings": ";AAAA;AAAA,MAAA;;EAAA,KAAA,GAAkB,OAAA,CAAQ,cAAR,CAAuB,CAAC;;EAC1C,KAAA,GAAQ,OAAO,CAAC,GAAI,CAAA,OAAA;;EAEpB;;EA6BM;IAEQ,0BAAA,GAAA;;;;;;EAGd,MAAM,CAAC,OAAP,GAAiB;AArCjB"
+}
