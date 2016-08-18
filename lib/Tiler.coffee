@@ -169,7 +169,7 @@ class Tiler
     if debug then console.log 'setTileAt for tiler '+@myAddress+' called'
     #console.dir arguments
     q = defer()
-    if not tile or (tile and not tile.type) or (not tile.x and tile.x != 0) or (not tile.y and tile.y !=0)
+    if not tile or (tile and not tile.type and tile.type != 0) or (not tile.x and tile.x != 0) or (not tile.y and tile.y !=0)
       if debug then console.dir tile
       q.reject("bad tile format")
     else
