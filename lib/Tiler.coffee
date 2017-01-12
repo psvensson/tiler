@@ -35,8 +35,7 @@ class Tiler
     @siblings = new Siblings(@myAddress, @cacheEngine, @modelEngine, @sendFunction)
 
 
-  onZoneEvicted:(zoneObj) =>
-    @siblings.deRegisterAsSiblingForZone(zoneObj)
+  onZoneEvicted:(zoneObj) => @siblings.deRegisterAsSiblingForZone(zoneObj)
 
   persistDirtyZones: () =>
     q = defer()
@@ -213,65 +212,64 @@ class Tiler
         if --count == 0 then all(tileOps, error).then(success, error)
     q
 
+  registerZone : (q, zoneObj)=>
+    arr = zoneObj.tileid.split('_')
+    x = arr[1]
+    y = arr[2]
+    itemQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
+    @zoneItemQuadTrees[zoneObj.tileid] = itemQT
+    zoneObj.items.forEach (item) => @_setSomething(level, item, itemQT, 'items', q, true).then (zo)=>
+    entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
+    @zoneEntityQuadTrees[zoneObj.tileid] = entityQT
+    zoneObj.entities.forEach (entity) => @_setSomething(level, entity, entityQT, 'entities', q, true).then (zo)=>
+    ztiles = @zoneTiles[zoneObj.tileid] or {}
+    zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
+    @zoneTiles[zoneObj.tileid] = ztiles
+    #console.log 'registerOne adds item and entity QTs for tileid '+zoneObj.tileid
+    @zones.set zoneObj.tileid,zoneObj
+    @siblings.registerAsSiblingForZone(zoneObj)
+    if @zoneUnderConstruction[zoneObj.tileid] = true
+      delete @zoneUnderConstruction[zoneObj.tileid]
+      cbs = @postContructionCallbacks[zoneObj.tileid] or []
+      cbs.forEach (cb) =>
+        #console.log '<------ resolving paused lookup of zone'
+        cb()
+    q.resolve(zoneObj)
+
+  lookupZone : (tileid,q)=>
+    lruZone = @zones.get tileid
+    if lruZone
+      #console.log 'resolving '+tileid+' from lru'
+      q.resolve(lruZone)
+    else
+      @zoneUnderConstruction[tileid] = true
+      # check to see if sibling instance have created the zone already
+      @cacheEngine.get(tileid).then (exists) =>
+        if exists
+          @storageEngine.find('Zone', 'tileid', tileid).then (zoneObj) =>
+            if zoneObj
+              #console.log 'resolving '+tileid+' from db'
+              @registerZone(q, zoneObj)
+            else
+              console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
+              q.reject(BAD_TILE)
+        else
+          #console.log 'zone '+tileid+' ****************** not found, so creating new..'
+          @createNewZone(tileid).then (zoneObj) =>
+            @registerZone(q, zoneObj)
+
   resolveZoneFor:(level,x,y)=>
     q = defer()
-
-    registerZone = (q, zoneObj)=>
-      arr = zoneObj.tileid.split('_')
-      x = arr[1]
-      y = arr[2]
-      itemQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
-      @zoneItemQuadTrees[zoneObj.tileid] = itemQT
-      zoneObj.items.forEach (item) => @_setSomething(level, item, itemQT, 'items', q, true).then (zo)=>
-      entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
-      @zoneEntityQuadTrees[zoneObj.tileid] = entityQT
-      zoneObj.entities.forEach (entity) => @_setSomething(level, entity, entityQT, 'entities', q, true).then (zo)=>
-      ztiles = @zoneTiles[zoneObj.tileid] or {}
-      zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
-      @zoneTiles[zoneObj.tileid] = ztiles
-      #console.log 'registerOne adds item and entity QTs for tileid '+zoneObj.tileid
-      @zones.set zoneObj.tileid,zoneObj
-      @siblings.registerAsSiblingForZone(zoneObj)
-      if @zoneUnderConstruction[zoneObj.tileid] = true
-        delete @zoneUnderConstruction[zoneObj.tileid]
-        cbs = @postContructionCallbacks[zoneObj.tileid] or []
-        cbs.forEach (cb) =>
-          #console.log '<------ resolving paused lookup of zone'
-          cb()
-      q.resolve(zoneObj)
-
-    lookupZone = (tileid,q)=>
-      lruZone = @zones.get tileid
-      if lruZone
-        #console.log 'resolving '+tileid+' from lru'
-        q.resolve(lruZone)
-      else
-        @zoneUnderConstruction[tileid] = true
-        # check to see if sibling instance have created the zone already
-        @cacheEngine.get(tileid).then (exists) =>
-          if exists
-            @storageEngine.find('Zone', 'tileid', tileid).then (zoneObj) ->
-              if zoneObj
-                #console.log 'resolving '+tileid+' from db'
-                registerZone(q, zoneObj)
-              else
-                console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
-                q.reject(BAD_TILE)
-          else
-            #console.log 'zone '+tileid+' ****************** not found, so creating new..'
-            @createNewZone(tileid).then (zoneObj) =>
-              registerZone(q, zoneObj)
-
     tid = @getZoneIdFor(level,x,y)
     underConstruction = @zoneUnderConstruction[tid]
     #console.log 'resolve '+tid+' under construction = '+underConstruction
     if underConstruction
       #console.log '------> waiting for zone construction for '+tid
       cbs = @postContructionCallbacks[tid] or []
-      cbs.push ()->lookupZone(tid, q)
+      cbs.push ()=>@lookupZone(tid, q)
       @postContructionCallbacks[tid] = cbs
     else
-      lookupZone(tid, q)
+      @lookupZone(tid, q)
     q
 
   #---------------------------------------------------------------------------------------------------------------------

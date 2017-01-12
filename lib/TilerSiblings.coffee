@@ -19,6 +19,7 @@ class TilerSiblings
     @getSiblingsForZone(zoneObj).then (siblings) =>
       #if debug then console.log 'TilerSiblings.sendCommand got these siblings:'+JSON.stringify(siblings)
       command = {cmd: cmd, arg1: arg1, arg2: arg2}
+      # If arguments are actual spincycle objects, make sure to flatten them before packing them up and sending them away
       if arg1.toClient then command.arg1 = arg1.toClient()
       if arg2.toClient then command.arg2 = arg2.toClient()
       siblings.forEach (sibling) => if sibling isnt @myAddress then @sendFunction(sibling, command)
