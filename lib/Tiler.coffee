@@ -22,7 +22,7 @@ TODO:
 
 class Tiler
 
-  constructor:(@storageEngine, @cacheEngine, @modelEngine, @myAddress, @sendFunction, @registerForUpdatesFunction)->
+  constructor:(@storageEngine, @cacheEngine, @modelEngine, @myAddress, @communicationManager)->
     @dirtyZones = {}
     @zoneUnderConstruction = {}
     @postContructionCallbacks = {}
@@ -31,8 +31,11 @@ class Tiler
     @zoneEntityQuadTrees = {}
     @zoneTiles = {}
     @zones.on 'evict', @onZoneEvicted
-    @registerForUpdatesFunction(@)
-    @siblings = new Siblings(@myAddress, @cacheEngine, @modelEngine, @sendFunction)
+
+    #@sendFunction, @registerForUpdatesFunction
+
+    @communicationManager.registerForUpdates(@myAddress, @onSiblingUpdate)
+    @siblings = new Siblings(@myAddress, @communicationManager, @cacheEngine, @modelEngine)
 
 
   onZoneEvicted:(zoneObj) => @siblings.deRegisterAsSiblingForZone(zoneObj)
@@ -55,9 +58,9 @@ class Tiler
 
   # This is called by a listener (for exmaple a spincycle target) that is the recipient of a call made using
   # the provided sendFunction, but from another replica
-  onSiblingUpdate:(_command)=>
+  onSiblingUpdate:(_command, cb)=>
+    #console.log '=============================== Tiler.onSiblingUpdate called for tiler '+@myAddress+' command -> '
     command = JSON.parse(_command)
-    console.log 'Tiler.onSiblingUpdate called for tiler '+@myAddress
     #console.dir command
     arg1 = command.arg1
     arg2 = command.arg2
@@ -69,6 +72,8 @@ class Tiler
       when Siblings.CMD_ADD_ENTITY    then @addEntity(arg1, arg2, true)
       when Siblings.CMD_REMOVE_ENTITY then @removeEntity(arg1, arg2, true)
       when Siblings.CMD_UPDATE_ENTITY then @updateEntity(arg1, arg2, true)
+      when Siblings.CMD_GET_OPLOG     then @siblings.getOplog(command, cb)
+      when Siblings.CMD_NEW_OPLOG_EPOCH then @siblings.newOplogEpoch(command, cb)
 
 #
 # ---- NOTE: None of these get/update/add/remove methods serializes the Zone. This must be done explicitly afterwards by the caller!!
@@ -86,7 +91,7 @@ class Tiler
 
   addItem:(level, item, doNotPropagate)=>
     q = defer()
-    @_setSomething(level, item, @zoneItemQuadTrees, 'items', q).then ()=>
+    @_setSomething(level, item, @zoneItemQuadTrees, 'items', q).then (zoneObj)=>
       if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_ADD_ITEM,level,item
     q
 
@@ -152,9 +157,13 @@ class Tiler
     else
       @resolveZoneFor(level,x,y).then(
         (zone)=>
+          #console.log 'getTile got zone '+zone.id+' for get tile at '+x+','+y
           if zone and zone.tileid
             ztiles = @zoneTiles[zone.tileid]
-            q.resolve(ztiles[x+'_'+y])
+            tile = ztiles[x+'_'+y]
+            #console.log 'resolving tile '+tile
+            #if not tile then console.dir ztiles
+            q.resolve(tile)
           else
             q.resolve(BAD_TILE)
         ,()->
@@ -165,16 +174,18 @@ class Tiler
 
   # NOTE: this method does not serialize the zone, so either serialize explicitly after this call or use setAndPersistTiles instead
   setTileAt:(level, tile, doNotPropagate)=>
-    if debug then console.log 'setTileAt for tiler '+@myAddress+' called'
+    #console.log 'setTileAt for tiler '+@myAddress+' called. doNotPropagate = '+doNotPropagate
     #console.dir arguments
     q = defer()
     if not tile or (tile and not tile.type and tile.type != 0) or (not tile.x and tile.x != 0) or (not tile.y and tile.y !=0)
-      if debug then console.dir tile
+      #if debug then console.dir tile
       q.reject("bad tile format")
     else
       x = tile.x
       y = tile.y
+      #console.log 'trying to get zone for '+x+','+y
       @resolveZoneFor(level,x,y).then (zone)=>
+        #console.log '** found zone '+zone.id+' for set tile '+x+','+y
         ztiles = @zoneTiles[zone.tileid] or []
         ztiles[x+'_'+y] = tile
         @zoneTiles[zone.tileid] = ztiles
@@ -185,6 +196,8 @@ class Tiler
             found = true
             break
         if not found then zone.tiles.push tile
+        #console.log 'found = '+found+', ztiles is..'
+        #console.dir ztiles
         @dirtyZones[zone.tileid] = zone
         if not doNotPropagate then @siblings.sendCommand zone, Siblings.CMD_SET_TILE,level,tile
         q.resolve(tile)
@@ -225,18 +238,24 @@ class Tiler
     ztiles = @zoneTiles[zoneObj.tileid] or {}
     zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
     @zoneTiles[zoneObj.tileid] = ztiles
-    #console.log 'registerOne adds item and entity QTs for tileid '+zoneObj.tileid
+    #console.log 'registerZone adds item and entity QTs for tileid '+zoneObj.tileid
     @zones.set zoneObj.tileid,zoneObj
-    @siblings.registerAsSiblingForZone(zoneObj)
-    if @zoneUnderConstruction[zoneObj.tileid] = true
-      delete @zoneUnderConstruction[zoneObj.tileid]
-      cbs = @postContructionCallbacks[zoneObj.tileid] or []
-      cbs.forEach (cb) =>
-        #console.log '<------ resolving paused lookup of zone'
-        cb()
-    q.resolve(zoneObj)
+    @siblings.registerAsSiblingForZone(zoneObj).then ()=>
+      #console.log 'Tiler.registerZone back in business'
+      if @zoneUnderConstruction[zoneObj.tileid] == true
+        delete @zoneUnderConstruction[zoneObj.tileid]
+        cbs = @postContructionCallbacks[zoneObj.tileid] or []
+        cbs.forEach (cb) =>
+          #console.log '<------ resolving paused lookup of zone'
+          cb()
+        #console.log 'Tiler.registerZone done'
+        q.resolve(zoneObj)
+      else
+        #console.log 'Tiler.registerZone done 2'
+        q.resolve(zoneObj)
 
   lookupZone : (tileid,q)=>
+    #console.log 'lookupZOne called for '+tileid
     lruZone = @zones.get tileid
     if lruZone
       #console.log 'resolving '+tileid+' from lru'
@@ -251,7 +270,7 @@ class Tiler
               #console.log 'resolving '+tileid+' from db'
               @registerZone(q, zoneObj)
             else
-              console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
+              #console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
               q.reject(BAD_TILE)
         else
           #console.log 'zone '+tileid+' ****************** not found, so creating new..'

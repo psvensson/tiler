@@ -11,7 +11,7 @@
   debug = process.env['DEBUG'];
 
   describe("Tiler test", function() {
-    var cache, cacheEngine, modelEngine, registerForUpdatesFunction, sendFunction, storage, storageEngine, tileCluster, tiler;
+    var cache, cacheEngine, communicationManager, modelEngine, storage, storageEngine, tileCluster, tiler;
     storage = {};
     cache = {};
     tileCluster = {};
@@ -97,16 +97,26 @@
         return modelEngine.createAnything(obj);
       }
     };
-    sendFunction = function(adr, command) {
-      var sibling;
-      sibling = tileCluster[adr];
-      return sibling.onSiblingUpdate(JSON.stringify(command));
-    };
-    registerForUpdatesFunction = function(tiler) {
-      return tileCluster[tiler.myAddress] = tiler;
+    communicationManager = {
+      sendFunction: function(adr, command) {
+        var fun, q;
+        q = defer();
+        fun = tileCluster[adr];
+        if (!fun) {
+          console.log('----- no function found for adr ' + adr);
+          console.dir(tileCluster);
+        }
+        fun(JSON.stringify(command), function(reply) {
+          return q.resolve(reply);
+        });
+        return q;
+      },
+      registerForUpdates: function(adr, fun) {
+        return tileCluster[adr] = fun;
+      }
     };
     before(function(done) {
-      tiler = new Tiler(storageEngine, cacheEngine, modelEngine, "17", sendFunction, registerForUpdatesFunction);
+      tiler = new Tiler(storageEngine, cacheEngine, modelEngine, "17", communicationManager);
       return done();
     });
     it("should be able to calculate zoneid for positive x,y", function(done) {
@@ -201,19 +211,6 @@
         return done();
       });
     });
-    it("should be able to fail when setting faulty tile", function(done) {
-      return tiler.setTileAt(1, {
-        id: 'foo',
-        type: 0,
-        x: 1179,
-        y: 1194
-      }).then(function() {
-        return console.log('setTile OK');
-      }, function(reject) {
-        expect(reject).to.exist;
-        return done();
-      });
-    });
     it("should be able to add an item", function(done) {
       var item;
       item = {
@@ -260,8 +257,8 @@
     });
     it("should be able to set up two sibling Tile engines and have updates on one propagate to the other", function(done) {
       var tiler1, tiler2;
-      tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "a", sendFunction, registerForUpdatesFunction);
-      tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "b", sendFunction, registerForUpdatesFunction);
+      tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "a", communicationManager);
+      tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "b", communicationManager);
       return tiler1.getTileAt(1, 0, 0).then(function() {
         return tiler2.getTileAt(1, 0, 0).then(function() {
           return tiler1.setTileAt(1, {
@@ -274,8 +271,10 @@
               return tiler2.getTileAt(1, 1, 1).then(function(tile) {
                 expect(tile).to.exist;
                 return done();
+              }, function(reject) {
+                return console.log('got reject from get tile: ' + reject);
               });
-            }, 5);
+            }, 50);
           });
         });
       });
@@ -293,7 +292,7 @@
         return done();
       });
     });
-    return it("should be able set a tile and persist one or more dirtyZones", function(done) {
+    it("should be able set a tile and persist one or more dirtyZones", function(done) {
       return tiler.setTileAt(1, {
         id: 'foo',
         type: 'bar',
@@ -302,6 +301,17 @@
       }).then(function() {
         return tiler.persistDirtyZones().then(function(howmany) {
           expect(howmany).to.be.gt(0);
+          return done();
+        });
+      });
+    });
+    return it("should be able to have a Tiler replica/sibling elect itself to master", function(done) {
+      tiler = new Tiler(storageEngine, cacheEngine, modelEngine, "c", communicationManager);
+      return tiler.getTileAt(1, 500, 500).then(function() {
+        return cacheEngine.getAllValuesFor('zonereplica_1_500_500*').then(function(foo) {
+          var bar;
+          bar = foo[0];
+          expect(bar.indexOf('c,') > -1 && bar.indexOf('master') > -1).to.equal(true);
           return done();
         });
       });

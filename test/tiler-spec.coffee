@@ -36,6 +36,7 @@ describe "Tiler test", ()->
       q.resolve(cache[id])
       q
     set: (id, obj)->
+      #console.log 'cachEngine set: '+id+' -> '+obj
       q = defer()
       cache[id] = obj
       q.resolve()
@@ -62,19 +63,30 @@ describe "Tiler test", ()->
     createZone: (obj)-> modelEngine.createAnything(obj)
     createItem: (obj)-> modelEngine.createAnything(obj)
     createEntity: (obj)-> modelEngine.createAnything(obj)
-    
 
-  sendFunction = (adr, command)->
-    sibling = tileCluster[adr]
-    #console.log 'sendFunction sends'
-    #console.dir command
-    sibling.onSiblingUpdate(JSON.stringify(command))
 
-  registerForUpdatesFunction = (tiler)->
-    tileCluster[tiler.myAddress] = tiler
+  communicationManager =
+    sendFunction : (adr, command)->
+      q = defer()
+      fun = tileCluster[adr]
+      #console.log '--------------------------> sendFunction sends using fun '+fun+' lookup for adr '+adr
+      #console.dir command
+      if not fun
+        console.log '----- no function found for adr '+adr
+        console.dir tileCluster
+      fun(JSON.stringify(command),(reply)->
+        #console.log '<-------------------------- sendFunction reply got '+reply
+        #console.dir reply
+        q.resolve(reply)
+        )
+      return q
+
+    registerForUpdates : (adr, fun)->
+      #console.log '+++++++++++++++++++++++++++ registerForUpdates called with fun '+fun+' and address '+adr
+      tileCluster[adr] = fun
 
   before (done)->
-    tiler = new Tiler(storageEngine, cacheEngine, modelEngine, "17", sendFunction, registerForUpdatesFunction)
+    tiler = new Tiler(storageEngine, cacheEngine, modelEngine, "17", communicationManager)
     done()
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -136,14 +148,6 @@ describe "Tiler test", ()->
       expect(tiles.length).to.equal(3)
       done()
 
-  it "should be able to fail when setting faulty tile", (done)->
-    tiler.setTileAt(1, {id:'foo', type: 0,x:1179, y:1194}).then(
-      ()->console.log 'setTile OK'
-      (reject)->
-        expect(reject).to.exist
-        done()
-    )
-
   it "should be able to add an item", (done)->
     item = {name: 'item 1', x:30, y: 40, height:1, width: 1}
     tiler.addItem(1, item).then ()->
@@ -167,18 +171,20 @@ describe "Tiler test", ()->
 
 
   it "should be able to set up two sibling Tile engines and have updates on one propagate to the other", (done)->
-    tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "a", sendFunction, registerForUpdatesFunction)
-    tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "b", sendFunction, registerForUpdatesFunction)
+    tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "a", communicationManager)
+    tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "b", communicationManager)
     # prime zones, so each resolve the same
     tiler1.getTileAt(1, 0, 0).then ()->
       tiler2.getTileAt(1, 0, 0).then ()->
+        #console.log 'spec setting tile at 1,1'
         tiler1.setTileAt(1, {id:'xxyyzz', type:'Tile', x:1, y:1}).then ()->
           setTimeout(
             ()->
               tiler2.getTileAt(1, 1, 1).then (tile)->
                 expect(tile).to.exist
                 done()
-            ,5
+              , (reject)->console.log 'got reject from get tile: '+reject
+            ,50
           )
 
   it "should be able set a tile and have coresponding zone added to dirtyZones", (done)->
@@ -191,4 +197,14 @@ describe "Tiler test", ()->
     tiler.setTileAt(1, {id:'foo', type: 'bar',x:79, y:94}).then ()->
       tiler.persistDirtyZones().then (howmany)->
         expect(howmany).to.be.gt(0)
+        done()
+
+  it "should be able to have a Tiler replica/sibling elect itself to master", (done)->
+    tiler = new Tiler(storageEngine, cacheEngine, modelEngine, "c", communicationManager)
+    tiler.getTileAt(1, 500, 500).then ()->
+      #console.dir cache
+      cacheEngine.getAllValuesFor('zonereplica_1_500_500*').then (foo)->
+        bar = foo[0]
+        #console.log bar
+        expect(bar.indexOf('c,')>-1 && bar.indexOf('master') > -1).to.equal(true)
         done()
