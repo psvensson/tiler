@@ -80,6 +80,8 @@
     modelEngine = {
       createAnything: function(obj) {
         var q;
+        obj.createdAt = Date.now();
+        obj.modifiedAt = obj.createdAt;
         obj.serialize = function() {
           return storageEngine.set(obj.id, obj);
         };

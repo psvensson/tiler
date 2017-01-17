@@ -56,6 +56,8 @@ describe "Tiler test", ()->
 
   modelEngine =
     createAnything: (obj)->
+      obj.createdAt = Date.now()
+      obj.modifiedAt = obj.createdAt
       obj.serialize = ()-> storageEngine.set(obj.id, obj)
       q = defer()
       q.resolve(obj)

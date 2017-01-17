@@ -1,5 +1,7 @@
 defer           = require('node-promise').defer
 LRU             = require('lru-cache')
+PriorityQueue   = require('priorityqueue')
+
 debug = process.env["DEBUG"]
 
 """
@@ -48,6 +50,7 @@ class TilerReplication
     @oplogs = {}
     @timers = {}
 
+
     #@communicationManager.registerForUpdates(@, @onSiblingUpdate)
 
   registerTimer: (fun, arg, time, lookup) =>
@@ -63,8 +66,9 @@ class TilerReplication
     #console.log 'TilerReplication.onSiblingUpdate: '+JSON.stringify(command)
     #console.dir command
     if command.cmd == TilerReplication.CMD_GET_OPLOG
-      console.log '*** TODO *** oplog get in TilerReplication is NOT IMPLEMENTED'
-      replyfunc({fake:'oplog'})
+      console.log 'oplog get in TilerReplication for modifedAt '+command.arg1+' called'
+      oplog = @getOplogFor({modifiedAt: command.arg1})
+      replyfunc(oplog.toArray())
 
   deRegisterTimer: (lookup) =>
     l = @timers[lookup]
@@ -79,7 +83,14 @@ class TilerReplication
     @oplogs[zoneObj.modifiedAt] = oplog
 
   getOplogFor:(zoneObj) =>
-    rv = @oplogs[zoneObj.modifiedAt] or []
+    rv = @oplogs[zoneObj.modifiedAt]
+    if not rv
+      rv = new PriorityQueue(comparator: (a, b) ->
+        x = 0
+        if a.timeStamp > b.timeStamp then x = -1
+        if a.timeStamp < b.timeStamp then x = 1
+        x
+      )
     rv
 
   getSiblingsForZone: (zoneObj) =>
@@ -169,12 +180,13 @@ class TilerReplication
       command = {cmd: TilerReplication.CMD_GET_OPLOG, arg1: zoneObj.modifiedAt}
       if adr isnt '-1'
         console.log 'TilerReplication.getAndExecuteAllOutstandingCommands sending command from us ('+@myAddress+')  to sibling '+adr
-        @communicationManager.sendFunction(adr, command).then (reply)->
+        @communicationManager.sendFunction(adr, command).then (reply)=>
           console.log 'got OPLOG reply from sibling: '+JSON.stringify(reply)
-          console.log '*** TODO***  OPLOG restoration NOT IMPLEMENTED'
           # start executing all commands in the oplog oldest first
-
-          # when oplog commands have timestamps < 1s from Date.now, open the replica for use
+          oplog = @getOplogFor(zoneObj)
+          reply.forEach (oplogcmd)=>
+            console.log '*** OPLOG restoration at '+@myAddress+' from remote source '+adr+' : '+JSON.stringify(oplogcmd)
+            @communicationManager.sendFunction(@myAddress, oplogcmd)
           console.log 'getAndExecuteAllOutstandingCommands done'
           q.resolve()
        else
