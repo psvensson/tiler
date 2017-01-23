@@ -48,7 +48,7 @@
       }
     };
     cacheEngine = {
-      get: function(id) {
+      get: function(type, id) {
         var q;
         q = defer();
         q.resolve(cache[id]);

@@ -31,7 +31,7 @@ describe "Tiler test", ()->
       q
 
   cacheEngine =
-    get: (id)->
+    get: (type, id)->
       q = defer()
       q.resolve(cache[id])
       q

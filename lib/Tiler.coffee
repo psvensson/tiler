@@ -238,7 +238,7 @@ class Tiler
     ztiles = @zoneTiles[zoneObj.tileid] or {}
     zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
     @zoneTiles[zoneObj.tileid] = ztiles
-    if debug then console.log 'registerZone adds item and entity QTs for tileid '+zoneObj.tileid
+    if debug then console.log 'Tiler.registerZone adds item and entity QTs for tileid '+zoneObj.tileid
     @zones.set zoneObj.tileid,zoneObj
     @siblings.registerAsSiblingForZone(zoneObj).then ()=>
       if debug then console.log 'Tiler.registerZone back in business'
@@ -255,25 +255,26 @@ class Tiler
         q.resolve(zoneObj)
 
   lookupZone : (tileid,q)=>
-    if debug then console.log 'lookupZOne called for '+tileid
+    if debug then console.log 'Tiler.lookupZone called for '+tileid
     lruZone = @zones.get tileid
     if lruZone
-      if debug then console.log 'resolving '+tileid+' from lru'
+      if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from lru'
       q.resolve(lruZone)
     else
       @zoneUnderConstruction[tileid] = true
       # check to see if sibling instance have created the zone already
-      @cacheEngine.get(tileid).then (exists) =>
+      @cacheEngine.get('Zone',tileid).then (exists) =>
         if exists
           @storageEngine.find('Zone', 'tileid', tileid).then (zoneObj) =>
+            if debug then console.log 'Tiler.lookupZone got back zone obj'
             if zoneObj
-              if debug then console.log 'resolving '+tileid+' from db'
+              if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from db'
               @registerZone(q, zoneObj)
             else
               if debug then console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
               q.reject(BAD_TILE)
         else
-          if debug then console.log 'zone '+tileid+' ****************** not found, so creating new..'
+          if debug then console.log 'Tiler.lookupZone zone '+tileid+' ****************** not found, so creating new..'
           @createNewZone(tileid).then (zoneObj) =>
             @registerZone(q, zoneObj)
 
@@ -281,7 +282,7 @@ class Tiler
     q = defer()
     tid = @getZoneIdFor(level,x,y)
     underConstruction = @zoneUnderConstruction[tid]
-    if debug then console.log 'resolve '+tid+' under construction = '+underConstruction
+    if debug then console.log 'Tiler.resolveZoneFor '+tid+' under construction = '+underConstruction
     if underConstruction
       if debug then console.log '------> waiting for zone construction for '+tid
       cbs = @postContructionCallbacks[tid] or []
