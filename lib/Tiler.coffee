@@ -281,7 +281,7 @@ class Tiler
     q = defer()
     tid = @getZoneIdFor(level,x,y)
     underConstruction = @zoneUnderConstruction[tid]
-    #console.log 'resolve '+tid+' under construction = '+underConstruction
+    if debug then console.log 'resolve '+tid+' under construction = '+underConstruction
     if underConstruction
       if debug then console.log '------> waiting for zone construction for '+tid
       cbs = @postContructionCallbacks[tid] or []
