@@ -133,7 +133,7 @@ class TilerReplication
   imalive: (zoneObj) => @setOurselvesAsReplica(zoneObj, @replica_type)
 
   checkMasterReplicaFor: (zoneObj) =>
-    console.log 'TilerReplication.checkMasterReplicaFor called for '+zoneObj.id
+    console.log 'TilerReplication.checkMasterReplicaFor called for: '+zoneObj.id
     q = defer()
     @getSiblingsForZone(zoneObj).then (siblings) =>
       #console.log 'TilerReplication.checkMasterReplicaFor got siblings'
@@ -154,7 +154,7 @@ class TilerReplication
     return q
 
   registerOurselvesAsMasterFor: (zoneObj, siblings) =>
-    console.log 'TilerReplication.registerOurselvesAsMasterFor called for zone '+zoneObj.id
+    console.log 'TilerReplication.registerOurselvesAsMasterFor called for zone: '+zoneObj.id
     if siblings.length  < 2 or @weAreOldestReplicaFor(zoneObj, siblings)
       console.log 'replica '+@myAddress+' registering as master for replica '+zoneObj.id
       try
