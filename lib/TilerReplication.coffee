@@ -147,8 +147,8 @@ class TilerReplication
           arr = sibling.split ','
           if arr[2] and arr[2] == 'master' then master = true
         if not master
-          @registerOurselvesAsMasterFor(zoneObj, siblings).then () =>
-            q.resolve(true)
+          @registerOurselvesAsMasterFor(zoneObj, siblings)
+          q.resolve(true)
         else
           q.resolve(false)
     return q
