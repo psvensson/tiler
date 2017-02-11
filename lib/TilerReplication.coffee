@@ -40,7 +40,10 @@ class TilerReplication
   @CMD_GET_OPLOG:         'getOplog'
   @TIME_BETWEEN_MASTER_SAVES    : 10 * 60 * 1000
   @TIME_BETWEEN_MASTER_PINGS    : 2000
+  @TIME_BETWEEN_IMALIVE    : 1000
+  @REPLICA_REGISTRATION_EXPIRATION    : 5000
   @NUMBER_OF_DEFERS_TO_OLDER_REPLICAS : 3
+
 
   options :
     max: 500
@@ -49,18 +52,26 @@ class TilerReplication
   constructor:(@myAddress, @cacheEngine, @communicationManager) ->
     @oplogs = {}
     @timers = {}
-
+    @replica_type = 'copy' # or 'master'
+    @imalivetimer = undefined
 
     #@communicationManager.registerForUpdates(@, @onSiblingUpdate)
 
+  shutdown: (zoneObj) =>
+    console.log 'shutting down local replica of zone '+zoneObj.id
+    for k,v of @timers
+      clearInterval(k)
+    @cacheEngine.delete('zonereplica_'+zoneObj.tileid+':'+@myAddress)
+
   registerTimer: (fun, arg, time, lookup) =>
-    @timers[lookup] = setInterval(
-      ()=>
-        console.log '--- calling timer with interval '+time
-        fun(arg)
-      ,time
-      )
-    fun(arg)
+    if not @timers[lookup]
+      @timers[lookup] = setInterval(
+        ()=>
+          #console.log '--- calling timer with interval '+time
+          fun(arg)
+        ,time
+        )
+      fun(arg)
 
   onSiblingUpdate: (command, replyfunc)=>
     #console.log 'TilerReplication.onSiblingUpdate: '+JSON.stringify(command)
@@ -72,7 +83,7 @@ class TilerReplication
 
   deRegisterTimer: (lookup) =>
     l = @timers[lookup]
-    if l then cancelInterval(l)
+    if l then clearInterval(l)
 
   # oplogs are keyed on the modifiedAt timestamp of the zone object the oplog refer to
   # the modifiedAt timestamp is of course set by the single master for the zone
@@ -105,6 +116,7 @@ class TilerReplication
       adr = '-1'
       for replica in replicaAddresses
         adr = replica.split(",")[0]
+        console.log 'getanyotheraddress checking address '+adr
         if adr != @myAddress
           console.log 'found an address '+adr+' that was other than mine: '+@myAddress
           break
@@ -112,14 +124,19 @@ class TilerReplication
     return q
 
   setOurselvesAsReplica: (zoneObj, kind = 'copy') =>
-    console.log 'setting address '+@myAddress+' to be replica type '+kind+' for zone '+zoneObj.id
+    #console.log 'setting address '+@myAddress+' to be replica type '+kind+' for zone '+zoneObj.id
     @cacheEngine.set('zonereplica_'+zoneObj.tileid+':'+@myAddress, @myAddress+","+Date.now()+","+kind)
+    @cacheEngine.expireat('zonereplica_'+zoneObj.tileid+':'+@myAddress, @REPLICA_REGISTRATION_EXPIRATION)
+    if not @imalivetimer
+      @imalivetimer = @registerTimer(@imalive, zoneObj, TilerReplication.TIME_BETWEEN_IMALIVE, 'imalive_for_'+zoneObj.id)
+
+  imalive: (zoneObj) => @setOurselvesAsReplica(zoneObj, @replica_type)
 
   checkMasterReplicaFor: (zoneObj) =>
-    #console.log 'TilerSiblings.checkMasterReplicaFor called for '+zoneObj.id
+    console.log 'TilerReplication.checkMasterReplicaFor called for '+zoneObj.id
     q = defer()
     @getSiblingsForZone(zoneObj).then (siblings) =>
-      #console.log 'TilerSiblings.checkMasterReplicaFor got siblings'
+      #console.log 'TilerReplication.checkMasterReplicaFor got siblings'
       #console.dir siblings
       if siblings.length == 0
         @registerOurselvesAsMasterFor(zoneObj, siblings)
@@ -137,12 +154,18 @@ class TilerReplication
     return q
 
   registerOurselvesAsMasterFor: (zoneObj, siblings) =>
-    #console.log 'TilerSiblings.regsiterOurselvesAsMasterFor called for zone '+zoneObj.id
+    console.log 'TilerReplication.registerOurselvesAsMasterFor called for zone '+zoneObj.id
     if siblings.length  < 2 or @weAreOldestReplicaFor(zoneObj, siblings)
-      #console.log 'replica '+@myAddress+' registering as master for replica '+zoneObj.id
-      @deRegisterTimer(zoneObj.id)
-      @setOurselvesAsReplica(zoneObj, 'master')
-      @registerTimer(@saveZone, zoneObj, TilerReplication.TIME_BETWEEN_MASTER_SAVES, 'master_saves_for_'+zoneObj.id)
+      console.log 'replica '+@myAddress+' registering as master for replica '+zoneObj.id
+      try
+        @deRegisterTimer(zoneObj.id)
+        @replica_type = 'master'
+        @setOurselvesAsReplica(zoneObj, @replica_type)
+        @registerTimer(@saveZone, zoneObj, TilerReplication.TIME_BETWEEN_MASTER_SAVES, 'master_saves_for_'+zoneObj.id)
+      catch ex
+        console.log 'exception caught: '+ex
+        console.dir ex
+        xyzzy
     else
       console.log 'we are not oldest replica. Deferring...'
 

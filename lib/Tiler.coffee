@@ -40,6 +40,8 @@ class Tiler
 
   onZoneEvicted:(zoneObj) => @siblings.deRegisterAsSiblingForZone(zoneObj)
 
+  shutdown:(zo)=>@siblings.shutdown(zo)
+
   persistDirtyZones: () =>
     q = defer()
     count = 0
@@ -241,24 +243,24 @@ class Tiler
     if debug then console.log 'Tiler.registerZone adds item and entity QTs for tileid '+zoneObj.tileid
     @zones.set zoneObj.tileid,zoneObj
     @siblings.registerAsSiblingForZone(zoneObj).then ()=>
-      if debug then console.log 'Tiler.registerZone back in business'
+      #if debug then console.log 'Tiler.registerZone back in business'
       if @zoneUnderConstruction[zoneObj.tileid] == true
         delete @zoneUnderConstruction[zoneObj.tileid]
         cbs = @postContructionCallbacks[zoneObj.tileid] or []
         cbs.forEach (cb) =>
           if debug then console.log '<------ resolving paused lookup of zone'
           cb()
-        if debug then console.log 'Tiler.registerZone done'
+        #if debug then console.log 'Tiler.registerZone done'
         q.resolve(zoneObj)
       else
-        if debug then console.log 'Tiler.registerZone done 2'
+        #if debug then console.log 'Tiler.registerZone done 2'
         q.resolve(zoneObj)
 
   lookupZone : (tileid,q)=>
-    if debug then console.log 'Tiler.lookupZone called for '+tileid
+    #if debug then console.log 'Tiler.lookupZone called for '+tileid
     lruZone = @zones.get tileid
     if lruZone
-      if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from lru'
+      #if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from lru'
       q.resolve(lruZone)
     else
       @zoneUnderConstruction[tileid] = true

@@ -56,6 +56,9 @@
       },
       set: function(id, obj) {
         var q;
+        if (!obj) {
+          xyzzy;
+        }
         q = defer();
         cache[id] = obj;
         q.resolve();
@@ -75,6 +78,14 @@
         }
         q.resolve(rv);
         return q;
+      },
+      "delete": function(id) {
+        return delete cache[id];
+      },
+      expireat: function(id, millis) {
+        return setTimeout(function() {
+          return cacheEngine["delete"](id);
+        }, millis);
       }
     };
     modelEngine = {
@@ -276,7 +287,7 @@
               }, function(reject) {
                 return console.log('got reject from get tile: ' + reject);
               });
-            }, 50);
+            }, 800);
           });
         });
       });
@@ -307,14 +318,43 @@
         });
       });
     });
-    return it("should be able to have a Tiler replica/sibling elect itself to master", function(done) {
+    it("should be able to have a Tiler replica/sibling elect itself to master", function(done) {
       tiler = new Tiler(storageEngine, cacheEngine, modelEngine, "c", communicationManager);
       return tiler.getTileAt(1, 500, 500).then(function() {
         return cacheEngine.getAllValuesFor('zonereplica_1_500_500*').then(function(foo) {
           var bar;
           bar = foo[0];
-          expect(bar.indexOf('c,') > -1 && bar.indexOf('master') > -1).to.equal(true);
+          expect(bar).to.contain('c,');
+          expect(bar).to.contain('master');
           return done();
+        });
+      });
+    });
+    return it("should be able to set up two Zones, shutdown the master and have the remaining rw copy become master", function(done) {
+      var cadr, madr, tiler1, tiler2;
+      tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "ma", communicationManager);
+      tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "co", communicationManager);
+      madr = 'zonereplica_1_0_0:ma';
+      cadr = 'zonereplica_1_0_0:co';
+      return tiler1.resolveZoneFor(1, 0, 0).then(function(mzone) {
+        return tiler2.resolveZoneFor(1, 0, 0).then(function(czone) {
+          return setTimeout(function() {
+            return cacheEngine.getAllValuesFor(madr).then(function(moo) {
+              console.log('master replica info before shutdown is ' + moo);
+              tiler1.shutdown(mzone);
+              return setTimeout(function() {
+                return cacheEngine.getAllValuesFor(cadr).then(function(foo) {
+                  var bar;
+                  bar = foo[0];
+                  console.log(foo);
+                  expect(bar).to.contain('master');
+                  return done();
+                }, function(reject) {
+                  return console.log('got reject from get tile: ' + reject);
+                });
+              }, 500);
+            });
+          }, 500);
         });
       });
     });

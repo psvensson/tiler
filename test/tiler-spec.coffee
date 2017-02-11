@@ -37,6 +37,7 @@ describe "Tiler test", ()->
       q
     set: (id, obj)->
       #console.log 'cachEngine set: '+id+' -> '+obj
+      if not obj then xyzzy
       q = defer()
       cache[id] = obj
       q.resolve()
@@ -49,10 +50,18 @@ describe "Tiler test", ()->
       rv = []
       for k,v of cache
         match = k.indexOf(wildcard)
-        #console.log 'match for '+k+' and '+wildcard+' was '+match
+        #console.log 'match for '+k+' and '+wildcard+' was '+match+' v = '+v
         if match > -1 then rv.push v
       q.resolve(rv)
       q
+    delete:(id)->
+      delete cache[id]
+    expireat:(id,millis)->
+      setTimeout(
+        ()->
+          cacheEngine.delete(id)
+        ,millis
+      )
 
   modelEngine =
     createAnything: (obj)->
@@ -171,7 +180,6 @@ describe "Tiler test", ()->
         expect(olditem).to.not.exist
         done()
 
-
   it "should be able to set up two sibling Tile engines and have updates on one propagate to the other", (done)->
     tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "a", communicationManager)
     tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "b", communicationManager)
@@ -186,7 +194,7 @@ describe "Tiler test", ()->
                 expect(tile).to.exist
                 done()
               , (reject)->console.log 'got reject from get tile: '+reject
-            ,50
+            ,800
           )
 
   it "should be able set a tile and have coresponding zone added to dirtyZones", (done)->
@@ -206,7 +214,36 @@ describe "Tiler test", ()->
     tiler.getTileAt(1, 500, 500).then ()->
       #console.dir cache
       cacheEngine.getAllValuesFor('zonereplica_1_500_500*').then (foo)->
+        #console.log 'getallvalues for zone returned..'
+        #console.dir foo
         bar = foo[0]
         #console.log bar
-        expect(bar.indexOf('c,')>-1 && bar.indexOf('master') > -1).to.equal(true)
+        expect(bar).to.contain('c,')
+        expect(bar).to.contain('master')
         done()
+
+  it "should be able to set up two Zones, shutdown the master and have the remaining rw copy become master", (done)->
+    tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "ma", communicationManager)
+    tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "co", communicationManager)
+    # prime zones, so each resolve the same
+    madr = 'zonereplica_1_0_0:ma'
+    cadr = 'zonereplica_1_0_0:co'
+    tiler1.resolveZoneFor(1,0,0).then (mzone)->
+      tiler2.resolveZoneFor(1,0,0).then (czone)->
+        setTimeout(
+          ()->
+            cacheEngine.getAllValuesFor(madr).then (moo)->
+              console.log 'master replica info before shutdown is '+moo
+              tiler1.shutdown(mzone)
+              setTimeout(
+                ()->
+                  cacheEngine.getAllValuesFor(cadr).then (foo)->
+                    bar = foo[0]
+                    console.log foo
+                    expect(bar).to.contain('master')
+                    done()
+                  , (reject)->console.log 'got reject from get tile: '+reject
+              ,500
+              )
+        ,500
+        )
