@@ -65,14 +65,19 @@
         return q;
       },
       getAllValuesFor: function(_wildcard) {
-        var k, match, q, rv, v, wildcard;
+        var k, kk, match, q, rv, v, wildcard;
         wildcard = _wildcard.replace('*', '');
         q = defer();
         rv = [];
         for (k in cache) {
           v = cache[k];
-          match = k.indexOf(wildcard);
-          if (match > -1) {
+          if (k.indexOf(':')) {
+            kk = k.substring(0, k.indexOf(':') + 1);
+          } else {
+            kk = k;
+          }
+          match = kk.indexOf(wildcard);
+          if ((match > -1) || (k === wildcard)) {
             rv.push(v);
           }
         }
@@ -83,6 +88,9 @@
         return delete cache[id];
       },
       expireat: function(id, millis) {
+        if (!millis) {
+          xyzzy;
+        }
         return setTimeout(function() {
           return cacheEngine["delete"](id);
         }, millis);
@@ -112,20 +120,27 @@
     };
     communicationManager = {
       sendFunction: function(adr, command) {
-        var fun, q;
+        var funs, q;
         q = defer();
-        fun = tileCluster[adr];
-        if (!fun) {
-          console.log('----- no function found for adr ' + adr);
-          console.dir(tileCluster);
-        }
-        fun(JSON.stringify(command), function(reply) {
-          return q.resolve(reply);
-        });
+        funs = tileCluster[adr];
+        funs.forEach((function(_this) {
+          return function(fun) {
+            if (!fun) {
+              console.log('----- no function found for adr ' + adr);
+              console.dir(tileCluster);
+            }
+            return fun(JSON.stringify(command), function(reply) {
+              return q.resolve(reply);
+            });
+          };
+        })(this));
         return q;
       },
       registerForUpdates: function(adr, fun) {
-        return tileCluster[adr] = fun;
+        var funs;
+        funs = tileCluster[adr] || [];
+        funs.push(fun);
+        return tileCluster[adr] = funs;
       }
     };
     before(function(done) {
@@ -163,13 +178,13 @@
       return done();
     });
     it("should be able to resolve and create a new zone", function(done) {
-      return tiler.resolveZoneFor(1, 114, -294).then(function(zoneObj) {
+      return tiler.zmgr.resolveZoneFor(1, 114, -294).then(function(zoneObj) {
         expect(zoneObj.id).to.equal('1_100_-280');
         return done();
       });
     });
     it("should be able to resolve an old, existing zone", function(done) {
-      return tiler.resolveZoneFor(1, 114, -294).then(function(zoneObj) {
+      return tiler.zmgr.resolveZoneFor(1, 114, -294).then(function(zoneObj) {
         expect(zoneObj.id).to.equal('1_100_-280');
         return done();
       });
@@ -181,7 +196,7 @@
         x: 79,
         y: 94
       }).then(function() {
-        return tiler.resolveZoneFor(1, 79, 94).then(function(zoneObj) {
+        return tiler.zmgr.resolveZoneFor(1, 79, 94).then(function(zoneObj) {
           expect(tiler.zoneTiles[zoneObj.tileid]['79_94']).to.exist;
           return done();
         });
@@ -234,7 +249,7 @@
         width: 1
       };
       return tiler.addItem(1, item).then(function() {
-        return tiler.resolveZoneFor(1, 30, 40).then(function(zoneObj) {
+        return tiler.zmgr.resolveZoneFor(1, 30, 40).then(function(zoneObj) {
           var addedItem, itemQT;
           itemQT = tiler.zoneItemQuadTrees[zoneObj.tileid];
           addedItem = itemQT.retrieve({
@@ -274,20 +289,23 @@
       tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "b", communicationManager);
       return tiler1.getTileAt(1, 0, 0).then(function() {
         return tiler2.getTileAt(1, 0, 0).then(function() {
+          console.log('>>> spec setting tile at 1,1');
           return tiler1.setTileAt(1, {
             id: 'xxyyzz',
             type: 'Tile',
             x: 1,
             y: 1
           }).then(function() {
+            console.log('>>> tiler1 set tile 1,1,1');
             return setTimeout(function() {
               return tiler2.getTileAt(1, 1, 1).then(function(tile) {
+                console.log('>>> tiler2 get tile 1,1,1 is ' + tile);
                 expect(tile).to.exist;
                 return done();
               }, function(reject) {
                 return console.log('got reject from get tile: ' + reject);
               });
-            }, 800);
+            }, 1000);
           });
         });
       });
@@ -334,27 +352,31 @@
       var cadr, madr, tiler1, tiler2;
       tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "ma", communicationManager);
       tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "co", communicationManager);
-      madr = 'zonereplica_1_0_0:ma';
-      cadr = 'zonereplica_1_0_0:co';
-      return tiler1.resolveZoneFor(1, 0, 0).then(function(mzone) {
-        return tiler2.resolveZoneFor(1, 0, 0).then(function(czone) {
+      madr = 'zonereplica_2_0_0:ma';
+      cadr = 'zonereplica_2_0_0:co';
+      console.log('>>> resolving zone tiler1');
+      return tiler1.zmgr.resolveZoneFor(2, 0, 0).then(function(mzone) {
+        console.log('>>> resolving zone tiler2');
+        return tiler2.zmgr.resolveZoneFor(2, 0, 0).then(function(czone) {
           return setTimeout(function() {
+            console.log('>>> getting alla values for ' + madr);
             return cacheEngine.getAllValuesFor(madr).then(function(moo) {
               console.log('master replica info before shutdown is ' + moo);
-              tiler1.shutdown(mzone);
+              tiler1.zmgr.shutdown(mzone);
               return setTimeout(function() {
+                console.log('getting all values for cadr');
                 return cacheEngine.getAllValuesFor(cadr).then(function(foo) {
                   var bar;
-                  bar = foo[0];
                   console.log(foo);
+                  bar = foo[0];
                   expect(bar).to.contain('master');
                   return done();
                 }, function(reject) {
                   return console.log('got reject from get tile: ' + reject);
                 });
-              }, 500);
+              }, 800);
             });
-          }, 500);
+          }, 300);
         });
       });
     });

@@ -1,7 +1,8 @@
-QuadTree 	      = require('area-qt')
+
 defer           = require('node-promise').defer
 all             = require('node-promise').allOrNone
 lru             = require('lru')
+ZonesManager    = require './ZonesManager'
 Siblings        = require('./TilerSiblings')
 
 debug = process.env["DEBUG"]
@@ -10,37 +11,19 @@ lruopts =
   max: 1000
   maxAgeInMilliseconds: 1000 * 60 * 60 * 24 * 4
 
-TILE_SIDE = 20
-BAD_TILE = {x:0, y:0, type: -1, ore: -1, stone: -1, features:[]}
 
-"""
-TODO:
-1. Add support for manipulating items and entities
-2. Detect and manage siblings through cacheEngine
-3. Replicate tile, item and entity updates to siblings
-"""
+BAD_TILE = {x:0, y:0, type: -1, ore: -1, stone: -1, features:[]}
 
 class Tiler
 
   constructor:(@storageEngine, @cacheEngine, @modelEngine, @myAddress, @communicationManager)->
     @dirtyZones = {}
-    @zoneUnderConstruction = {}
-    @postContructionCallbacks = {}
-    @zones = new lru(lruopts)
+
     @zoneItemQuadTrees = {}
     @zoneEntityQuadTrees = {}
     @zoneTiles = {}
-    @zones.on 'evict', @onZoneEvicted
-
-    #@sendFunction, @registerForUpdatesFunction
-
+    @zmgr = new ZonesManager(@storageEngine, @cacheEngine, @modelEngine, @myAddress, @communicationManager, @zoneItemQuadTrees, @zoneEntityQuadTrees, @zoneTiles)
     @communicationManager.registerForUpdates(@myAddress, @onSiblingUpdate)
-    @siblings = new Siblings(@myAddress, @communicationManager, @cacheEngine, @modelEngine)
-
-
-  onZoneEvicted:(zoneObj) => @siblings.deRegisterAsSiblingForZone(zoneObj)
-
-  shutdown:(zo)=>@siblings.shutdown(zo)
 
   persistDirtyZones: () =>
     q = defer()
@@ -61,7 +44,7 @@ class Tiler
   # This is called by a listener (for exmaple a spincycle target) that is the recipient of a call made using
   # the provided sendFunction, but from another replica
   onSiblingUpdate:(_command, cb)=>
-    #console.log '=============================== Tiler.onSiblingUpdate called for tiler '+@myAddress+' command -> '
+    #console.log '*=============================== Tiler.onSiblingUpdate called for tiler '+@myAddress+' command -> '
     command = JSON.parse(_command)
     #console.dir command
     arg1 = command.arg1
@@ -74,8 +57,9 @@ class Tiler
       when Siblings.CMD_ADD_ENTITY    then @addEntity(arg1, arg2, true)
       when Siblings.CMD_REMOVE_ENTITY then @removeEntity(arg1, arg2, true)
       when Siblings.CMD_UPDATE_ENTITY then @updateEntity(arg1, arg2, true)
-      when Siblings.CMD_GET_OPLOG     then @siblings.getOplog(command, cb)
-      when Siblings.CMD_NEW_OPLOG_EPOCH then @siblings.newOplogEpoch(command, cb)
+      else
+        #console.log 'command not found'
+        #xyzzy
 
 #
 # ---- NOTE: None of these get/update/add/remove methods serializes the Zone. This must be done explicitly afterwards by the caller!!
@@ -94,18 +78,18 @@ class Tiler
   addItem:(level, item, doNotPropagate)=>
     q = defer()
     @_setSomething(level, item, @zoneItemQuadTrees, 'items', q).then (zoneObj)=>
-      if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_ADD_ITEM,level,item
+      if not doNotPropagate then @zmgr.siblings.sendCommand zoneObj,Siblings.CMD_ADD_ITEM,level,item
     q
 
   removeItem:(level, item, doNotPropagate)=>
     q = defer()
     @removeSomething(level, item, @zoneItemQuadTrees, 'items', q).then (zoneObj)=>
-      if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_REMOVE_ITEM,level,item
+      if not doNotPropagate then @zmgr.siblings.sendCommand zoneObj,Siblings.CMD_REMOVE_ITEM,level,item
     q
 
   # Since we're getting live objects, what update does is jus making sure to propagate local changes to siblings
   updateItem:(level, item, doNotPropagate)=>
-    if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_UPDATE_ITEM,level,item
+    if not doNotPropagate then @zmgr.siblings.sendCommand zoneObj,Siblings.CMD_UPDATE_ITEM,level,item
     @modelEngine.updateObject(item)
 
   createEntity:(level, entityRecord)=>
@@ -122,17 +106,17 @@ class Tiler
   addEntity:(level, entity, doNotPropagate)=>
     q = defer()
     @_setSomething(level, entity, @zoneEntityQuadTrees, 'entities', q).then (zoneObj)=>
-      if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_ADD_ENTITY,level,entity
+      if not doNotPropagate then @zmgr.siblings.sendCommand zoneObj,Siblings.CMD_ADD_ENTITY,level,entity
     q
 
   removeEntity:(level, entity, doNotPropagate)=>
     q = defer()
     @removeSomething(level, entity, @zoneEntityQuadTrees, 'entities',  q).then (zoneObj)=>
-      if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_REMOVE_ENTITY,level,entity
+      if not doNotPropagate then @zmgr.siblings.sendCommand zoneObj,Siblings.CMD_REMOVE_ENTITY,level,entity
     q
 
   updateEntity:(level, entity, doNotPropagate)=>
-    if not doNotPropagate then @siblings.sendCommand zoneObj,Siblings.CMD_UPDATE_ENTITY,level,entity
+    if not doNotPropagate then @zmgr.siblings.sendCommand zoneObj,Siblings.CMD_UPDATE_ENTITY,level,entity
     @modelEngine.updateObject(entity)
 
   getItemAt: (level, x, y) =>
@@ -157,7 +141,7 @@ class Tiler
     if not level or (not x and x != 0) or (not y and y !=0)
       q.reject('Tiler.getTileAt wrong parameters ')
     else
-      @resolveZoneFor(level,x,y).then(
+      @zmgr.resolveZoneFor(level,x,y).then(
         (zone)=>
           #console.log 'getTile got zone '+zone.id+' for get tile at '+x+','+y
           if zone and zone.tileid
@@ -186,7 +170,7 @@ class Tiler
       x = tile.x
       y = tile.y
       #console.log 'trying to get zone for '+x+','+y
-      @resolveZoneFor(level,x,y).then (zone)=>
+      @zmgr.resolveZoneFor(level,x,y).then (zone)=>
         #console.log '** found zone '+zone.id+' for set tile '+x+','+y
         ztiles = @zoneTiles[zone.tileid] or []
         ztiles[x+'_'+y] = tile
@@ -201,7 +185,7 @@ class Tiler
         #console.log 'found = '+found+', ztiles is..'
         #console.dir ztiles
         @dirtyZones[zone.tileid] = zone
-        if not doNotPropagate then @siblings.sendCommand zone, Siblings.CMD_SET_TILE,level,tile
+        if not doNotPropagate then @zmgr.siblings.sendCommand zone, Siblings.CMD_SET_TILE,level,tile
         q.resolve(tile)
     q
 
@@ -221,102 +205,21 @@ class Tiler
       q.resolve(tiles)
 
     tiles.forEach (tile)=>
-      @resolveZoneFor(level, tile.x, tile.y).then (zone)=>
+      @zmgr.resolveZoneFor(level, tile.x, tile.y).then (zone)=>
         zonesAffected[zone.id] = zone
         tileOps.push @setTileAt(level, tile)
         if --count == 0 then all(tileOps, error).then(success, error)
     q
 
-  registerZone : (q, zoneObj)=>
-    arr = zoneObj.tileid.split('_')
-    x = arr[1]
-    y = arr[2]
-    itemQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
-    @zoneItemQuadTrees[zoneObj.tileid] = itemQT
-    zoneObj.items.forEach (item) => @_setSomething(level, item, itemQT, 'items', q, true).then (zo)=>
-    entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
-    @zoneEntityQuadTrees[zoneObj.tileid] = entityQT
-    zoneObj.entities.forEach (entity) => @_setSomething(level, entity, entityQT, 'entities', q, true).then (zo)=>
-    ztiles = @zoneTiles[zoneObj.tileid] or {}
-    zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
-    @zoneTiles[zoneObj.tileid] = ztiles
-    if debug then console.log 'Tiler.registerZone adds item and entity QTs for tileid '+zoneObj.tileid
-    @zones.set zoneObj.tileid,zoneObj
-    @siblings.registerAsSiblingForZone(zoneObj).then ()=>
-      #if debug then console.log 'Tiler.registerZone back in business'
-      if @zoneUnderConstruction[zoneObj.tileid] == true
-        delete @zoneUnderConstruction[zoneObj.tileid]
-        cbs = @postContructionCallbacks[zoneObj.tileid] or []
-        cbs.forEach (cb) =>
-          if debug then console.log '<------ resolving paused lookup of zone'
-          cb()
-        #if debug then console.log 'Tiler.registerZone done'
-        q.resolve(zoneObj)
-      else
-        #if debug then console.log 'Tiler.registerZone done 2'
-        q.resolve(zoneObj)
 
-  lookupZone : (tileid,q)=>
-    #if debug then console.log 'Tiler.lookupZone called for '+tileid
-    lruZone = @zones.get tileid
-    if lruZone
-      #if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from lru'
-      q.resolve(lruZone)
-    else
-      @zoneUnderConstruction[tileid] = true
-      # check to see if sibling instance have created the zone already
-      @cacheEngine.get('Zone',tileid).then (exists) =>
-        if exists
-          @storageEngine.find('Zone', 'tileid', tileid).then (zoneObj) =>
-            if debug then console.log 'Tiler.lookupZone got back zone obj'
-            if zoneObj
-              if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from db'
-              @registerZone(q, zoneObj)
-            else
-              if debug then console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
-              q.reject(BAD_TILE)
-        else
-          if debug then console.log 'Tiler.lookupZone zone '+tileid+' ****************** not found, so creating new..'
-          @createNewZone(tileid).then (zoneObj) =>
-            @registerZone(q, zoneObj)
 
-  resolveZoneFor:(level,x,y)=>
-    q = defer()
-    tid = @getZoneIdFor(level,x,y)
-    underConstruction = @zoneUnderConstruction[tid]
-    if debug then console.log 'Tiler.resolveZoneFor '+tid+' under construction = '+underConstruction
-    if underConstruction
-      if debug then console.log '------> waiting for zone construction for '+tid
-      cbs = @postContructionCallbacks[tid] or []
-      cbs.push ()=>@lookupZone(tid, q)
-      @postContructionCallbacks[tid] = cbs
-    else
-      @lookupZone(tid, q)
-    q
 
   #---------------------------------------------------------------------------------------------------------------------
 
-  createNewZone: (tileid) =>
-    q = defer()
-    newzone =
-      name: 'Zone_'+tileid
-      type: 'Zone'
-      id: tileid
-      tileid: tileid
-      items: []
-      entities: []
-      tiles: []
 
-    @modelEngine.createZone(newzone).then (zoneObj)=>
-      zoneObj.serialize()
-      @zones.set tileid,zoneObj
-      # store that zone exists in distributed cache so sibling do not create duplicates
-      @cacheEngine.set(tileid, 1).then ()->
-        q.resolve(zoneObj)
-    q
 
   _getSomething:(level, x, y, qthash, q) =>
-    @resolveZoneFor(level,x,y).then(
+    @zmgr.resolveZoneFor(level,x,y).then(
       (zoneObj)=>
         if zoneObj
           qt = qthash[zoneObj.tileid]
@@ -329,7 +232,7 @@ class Tiler
 
   _setSomething:(level, something, qthash, propname, q, skipadd) =>
     qq = defer()
-    @resolveZoneFor(level, something.x, something.y).then(
+    @zmgr.resolveZoneFor(level, something.x, something.y).then(
       (zoneObj)=>
         if zoneObj
           qt = qthash[zoneObj.tileid]
@@ -354,7 +257,7 @@ class Tiler
 
   removeSomething:(level, something, qthash, propname, q) =>
     qq = defer()
-    @resolveZoneFor(level, something.x, something.y).then(
+    @zmgr.resolveZoneFor(level, something.x, something.y).then(
       (zoneObj)=>
         if zoneObj
           qt = qthash[zoneObj.tileid]
@@ -375,12 +278,6 @@ class Tiler
     )
     qq
 
-  getZoneIdFor:(level,x,y) ->
-    xr = x % TILE_SIDE
-    yr = y % TILE_SIDE
-    zx =  (x - xr)
-    zy =  (y - yr)
-    level+'_'+zx+'_'+zy
-
+  getZoneIdFor:(level,x,y)->@zmgr.getZoneIdFor(level,x,y)
 
 module.exports = Tiler

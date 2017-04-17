@@ -39,7 +39,7 @@ class TilerReplication
   @CMD_NEW_OPLOG_EPOCH: 'newEpoch'
   @CMD_GET_OPLOG:         'getOplog'
   @TIME_BETWEEN_MASTER_SAVES    : 10 * 60 * 1000
-  @TIME_BETWEEN_MASTER_PINGS    : 2000
+  #@TIME_BETWEEN_MASTER_PINGS    : 2000
   @TIME_BETWEEN_IMALIVE    : 1000
   @REPLICA_REGISTRATION_EXPIRATION    : 5000
   @NUMBER_OF_DEFERS_TO_OLDER_REPLICAS : 3
@@ -49,19 +49,20 @@ class TilerReplication
     max: 500
     maxAge: @TIME_BETWEEN_MASTER_SAVES * 3
 
+    # TODO: Some idiot has mixed a static class managing replicas with a class holding indivudal replica state. This is not a good idea. Choose one!!!
+
   constructor:(@myAddress, @cacheEngine, @communicationManager) ->
     @oplogs = {}
     @timers = {}
-    @replica_type = 'copy' # or 'master'
-    @imalivetimer = undefined
-
-    #@communicationManager.registerForUpdates(@, @onSiblingUpdate)
+    @replicas = {}
 
   shutdown: (zoneObj) =>
     console.log 'shutting down local replica of zone '+zoneObj.id
-    for k,v of @timers
-      clearInterval(k)
+    replica = @replicas[zoneObj.id]
+    clearInterval(replica.imalivetimer)
+    if replica.mastersave then clearInterval(replica.mastersave)
     @cacheEngine.delete('zonereplica_'+zoneObj.tileid+':'+@myAddress)
+    @replicas[zoneObj.id] = ''
 
   registerTimer: (fun, arg, time, lookup) =>
     if not @timers[lookup]
@@ -74,7 +75,7 @@ class TilerReplication
       fun(arg)
 
   onSiblingUpdate: (command, replyfunc)=>
-    #console.log 'TilerReplication.onSiblingUpdate: '+JSON.stringify(command)
+    console.log 'TilerReplication.onSiblingUpdate: '+JSON.stringify(command)
     #console.dir command
     if command.cmd == TilerReplication.CMD_GET_OPLOG
       console.log 'oplog get in TilerReplication for modifedAt '+command.arg1+' called'
@@ -107,6 +108,8 @@ class TilerReplication
   getSiblingsForZone: (zoneObj) =>
     q = defer()
     @cacheEngine.getAllValuesFor('zonereplica_'+zoneObj.tileid+':*').then (replicaAddresses)=>
+      #console.log 'TilerReplication.getSiblingsForZone '+zoneObj.tileid+' got back...'
+      #console.dir replicaAddresses
       q.resolve(replicaAddresses)
     return q
 
@@ -116,7 +119,7 @@ class TilerReplication
       adr = '-1'
       for replica in replicaAddresses
         adr = replica.split(",")[0]
-        console.log 'getanyotheraddress checking address '+adr
+        #console.log 'getanyotheraddress checking address '+adr
         if adr != @myAddress
           console.log 'found an address '+adr+' that was other than mine: '+@myAddress
           break
@@ -124,17 +127,26 @@ class TilerReplication
     return q
 
   setOurselvesAsReplica: (zoneObj, kind = 'copy') =>
-    #console.log 'setting address '+@myAddress+' to be replica type '+kind+' for zone '+zoneObj.id
-    @cacheEngine.set('zonereplica_'+zoneObj.tileid+':'+@myAddress, @myAddress+","+Date.now()+","+kind)
-    @cacheEngine.expireat('zonereplica_'+zoneObj.tileid+':'+@myAddress, @REPLICA_REGISTRATION_EXPIRATION)
-    if not @imalivetimer
-      @imalivetimer = @registerTimer(@imalive, zoneObj, TilerReplication.TIME_BETWEEN_IMALIVE, 'imalive_for_'+zoneObj.id)
+    console.log 'setting address '+@myAddress+' to be replica type '+kind+' for zone '+zoneObj.id
+    @cacheEngine.set('zonereplica_'+zoneObj.tileid+':'+@myAddress, @myAddress+","+Date.now()+","+kind).then ()=>
+      @cacheEngine.expireat('zonereplica_'+zoneObj.tileid+':'+@myAddress, TilerReplication.REPLICA_REGISTRATION_EXPIRATION)
+      replica = @replicas[zoneObj.id]
+      if not replica then replica = {kind: kind, timers:{}}
+      if not replica.timers.imalivetimer
+        replica.timers.imalivetimer = @registerTimer(@imalive, zoneObj, TilerReplication.TIME_BETWEEN_IMALIVE, 'imalive_for_'+zoneObj.id)
+      if replica.kind == 'copy' then @checkMasterReplicaFor(zoneObj)
+      @replicas[zoneObj.id] = replica
 
-  imalive: (zoneObj) => @setOurselvesAsReplica(zoneObj, @replica_type)
+  imalive: (zoneObj) =>
+    replica = @replicas[zoneObj.id]
+    @setOurselvesAsReplica(zoneObj, replica.kind)
 
   checkMasterReplicaFor: (zoneObj) =>
     console.log 'TilerReplication.checkMasterReplicaFor called for: '+zoneObj.id
     q = defer()
+    replica = @replicas[zoneObj.id]
+    if not replica then replica = {kind: 'copy', timers:{}}
+    @replicas[zoneObj.id] = replica
     @getSiblingsForZone(zoneObj).then (siblings) =>
       #console.log 'TilerReplication.checkMasterReplicaFor got siblings'
       #console.dir siblings
@@ -144,7 +156,9 @@ class TilerReplication
       else
         master = false
         siblings.forEach (sibling)=>
+          console.log 'checkMasterReplice sibling -> '+sibling
           arr = sibling.split ','
+          console.dir arr
           if arr[2] and arr[2] == 'master' then master = true
         if not master
           @registerOurselvesAsMasterFor(zoneObj, siblings)
@@ -155,13 +169,14 @@ class TilerReplication
 
   registerOurselvesAsMasterFor: (zoneObj, siblings) =>
     console.log 'TilerReplication.registerOurselvesAsMasterFor called for zone: '+zoneObj.id
+    replica = @replicas[zoneObj.id]
     if siblings.length  < 2 or @weAreOldestReplicaFor(zoneObj, siblings)
       console.log 'replica '+@myAddress+' registering as master for replica '+zoneObj.id
       try
-        @deRegisterTimer(zoneObj.id)
-        @replica_type = 'master'
-        @setOurselvesAsReplica(zoneObj, @replica_type)
-        @registerTimer(@saveZone, zoneObj, TilerReplication.TIME_BETWEEN_MASTER_SAVES, 'master_saves_for_'+zoneObj.id)
+        #@deRegisterTimer(zoneObj.id)
+        replica.kind = 'master'
+        @setOurselvesAsReplica(zoneObj, 'master')
+        replica.timers.mastersave = @registerTimer(@saveZone, zoneObj, TilerReplication.TIME_BETWEEN_MASTER_SAVES, 'master_saves_for_'+zoneObj.id)
       catch ex
         console.log 'exception caught: '+ex
         console.dir ex

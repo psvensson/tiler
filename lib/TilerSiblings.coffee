@@ -21,7 +21,9 @@ class TilerSiblings
   constructor:(@myAddress, @communicationManager, @cacheEngine, @modelEngine)->
     @repl = new Repl(@myAddress, @cacheEngine, @communicationManager)
 
-  getOplog:(command, cb)=>@repl.onSiblingUpdate(command,cb)
+  getOplog:(command, cb)=>
+    #console.log 'TilerSiblings.getOplog passing through to replication manager'
+    @repl.onSiblingUpdate(command,cb)
 
   shutdown:(zo)=>@repl.shutdown(zo)
 
@@ -42,7 +44,11 @@ class TilerSiblings
         adr = sibling.split(',')[0]
         if adr isnt @myAddress
           #console.log 'sending command to sibling '+adr
-          @communicationManager.sendFunction(adr, command).then (reply)->console.log 'TilerSiblings.sendCommand got reply '+reply
+          if not adr or adr == 'undefined'
+            console.log 'Tiler-Engine:TilerSibling::sendCommand - adr is '+adr
+            xyzzy
+          else
+            @communicationManager.sendFunction(adr, command).then (reply)->console.log 'TilerSiblings.sendCommand got reply '+reply
 
   # AKA 'registerReplice'
   # We have already loaded the current Zone state fully from storage
@@ -68,10 +74,7 @@ class TilerSiblings
         )
     return q
 
-  deRegisterAsSiblingForZone: (zoneObj) =>
-    @cacheEngine.del 'zonereplica_'+zoneObj.tileid+':'+@myAddress
-
-
+  deRegisterAsSiblingForZone: (zoneObj) => @repl.shutdown(zoneObj)
 
 
 module.exports = TilerSiblings

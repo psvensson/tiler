@@ -5,7 +5,7 @@ defer     = require('node-promise').defer
 debug = process.env['DEBUG']
 
 describe "Tiler test", ()->
-
+  #this.timeout(500000);
   storage = {}
   cache = {}
   tileCluster = {}
@@ -44,21 +44,27 @@ describe "Tiler test", ()->
       q
     getAllValuesFor: (_wildcard)->
       wildcard = _wildcard.replace('*','')
-      #console.log 'cacheEngine.getAllValuesFor called'
+      #console.log 'cacheEngine.getAllValuesFor called for "'+wildcard+'"'
       #console.dir cache
       q = defer()
       rv = []
       for k,v of cache
-        match = k.indexOf(wildcard)
-        #console.log 'match for '+k+' and '+wildcard+' was '+match+' v = '+v
-        if match > -1 then rv.push v
+        if k.indexOf(':') then kk = k.substring(0, k.indexOf(':')+1) else kk = k
+        match = kk.indexOf(wildcard)
+        #console.log 'match for '+kk+' and '+wildcard+' was '+match+' v = '+v+' k = '+k
+        if ((match > -1) or (k == wildcard)) then rv.push v
       q.resolve(rv)
       q
     delete:(id)->
+      #console.log '********************************* DELETE CACHE CALLED *****************************'
+      #console.dir arguments
       delete cache[id]
     expireat:(id,millis)->
+      if not millis then xyzzy
+      #console.log '******************************** EXPIREAT called for '+millis+' millis'
       setTimeout(
         ()->
+          #console.log '******************************** EXPIREAT called for '+millis+' millis'
           cacheEngine.delete(id)
         ,millis
       )
@@ -79,22 +85,25 @@ describe "Tiler test", ()->
   communicationManager =
     sendFunction : (adr, command)->
       q = defer()
-      fun = tileCluster[adr]
+      funs = tileCluster[adr]
       #console.log '--------------------------> sendFunction sends using fun '+fun+' lookup for adr '+adr
       #console.dir command
-      if not fun
-        console.log '----- no function found for adr '+adr
-        console.dir tileCluster
-      fun(JSON.stringify(command),(reply)->
-        #console.log '<-------------------------- sendFunction reply got '+reply
-        #console.dir reply
-        q.resolve(reply)
-        )
+      funs.forEach (fun)=>
+        if not fun
+          console.log '----- no function found for adr '+adr
+          console.dir tileCluster
+        fun(JSON.stringify(command),(reply)->
+          #console.log '<-------------------------- sendFunction reply got '+reply
+          #console.dir reply
+          q.resolve(reply)
+          )
       return q
 
     registerForUpdates : (adr, fun)->
       #console.log '+++++++++++++++++++++++++++ registerForUpdates called with fun '+fun+' and address '+adr
-      tileCluster[adr] = fun
+      funs = tileCluster[adr] or []
+      funs.push fun
+      tileCluster[adr] = funs
 
   before (done)->
     tiler = new Tiler(storageEngine, cacheEngine, modelEngine, "17", communicationManager)
@@ -128,18 +137,18 @@ describe "Tiler test", ()->
     done()
 
   it "should be able to resolve and create a new zone", (done)->
-    tiler.resolveZoneFor(1,114,-294).then (zoneObj)->
+    tiler.zmgr.resolveZoneFor(1,114,-294).then (zoneObj)->
       expect(zoneObj.id).to.equal('1_100_-280')
       done()
 
   it "should be able to resolve an old, existing zone", (done)->
-    tiler.resolveZoneFor(1,114,-294).then (zoneObj)->
+    tiler.zmgr.resolveZoneFor(1,114,-294).then (zoneObj)->
       expect(zoneObj.id).to.equal('1_100_-280')
       done()
 
   it "should be able set a tile", (done)->
     tiler.setTileAt(1, {id:'foo', type: 'bar',x:79, y:94}).then ()->
-      tiler.resolveZoneFor(1,79,94).then (zoneObj)->
+      tiler.zmgr.resolveZoneFor(1,79,94).then (zoneObj)->
         expect(tiler.zoneTiles[zoneObj.tileid]['79_94']).to.exist
         done()
 
@@ -162,7 +171,7 @@ describe "Tiler test", ()->
   it "should be able to add an item", (done)->
     item = {name: 'item 1', x:30, y: 40, height:1, width: 1}
     tiler.addItem(1, item).then ()->
-      tiler.resolveZoneFor(1,30,40).then (zoneObj)->
+      tiler.zmgr.resolveZoneFor(1,30,40).then (zoneObj)->
         itemQT = tiler.zoneItemQuadTrees[zoneObj.tileid]
         addedItem = itemQT.retrieve({x:30, y: 40})
         expect(addedItem).to.exist
@@ -186,15 +195,17 @@ describe "Tiler test", ()->
     # prime zones, so each resolve the same
     tiler1.getTileAt(1, 0, 0).then ()->
       tiler2.getTileAt(1, 0, 0).then ()->
-        #console.log 'spec setting tile at 1,1'
+        console.log '>>> spec setting tile at 1,1'
         tiler1.setTileAt(1, {id:'xxyyzz', type:'Tile', x:1, y:1}).then ()->
+          console.log '>>> tiler1 set tile 1,1,1'
           setTimeout(
             ()->
               tiler2.getTileAt(1, 1, 1).then (tile)->
+                console.log '>>> tiler2 get tile 1,1,1 is '+tile
                 expect(tile).to.exist
                 done()
               , (reject)->console.log 'got reject from get tile: '+reject
-            ,800
+            ,1000
           )
 
   it "should be able set a tile and have coresponding zone added to dirtyZones", (done)->
@@ -226,24 +237,28 @@ describe "Tiler test", ()->
     tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "ma", communicationManager)
     tiler2 = new Tiler(storageEngine, cacheEngine, modelEngine, "co", communicationManager)
     # prime zones, so each resolve the same
-    madr = 'zonereplica_1_0_0:ma'
-    cadr = 'zonereplica_1_0_0:co'
-    tiler1.resolveZoneFor(1,0,0).then (mzone)->
-      tiler2.resolveZoneFor(1,0,0).then (czone)->
+    madr = 'zonereplica_2_0_0:ma'
+    cadr = 'zonereplica_2_0_0:co'
+    console.log '>>> resolving zone tiler1'
+    tiler1.zmgr.resolveZoneFor(2,0,0).then (mzone)->
+      console.log '>>> resolving zone tiler2'
+      tiler2.zmgr.resolveZoneFor(2,0,0).then (czone)->
         setTimeout(
           ()->
+            console.log '>>> getting alla values for '+madr
             cacheEngine.getAllValuesFor(madr).then (moo)->
               console.log 'master replica info before shutdown is '+moo
-              tiler1.shutdown(mzone)
+              tiler1.zmgr.shutdown(mzone)
               setTimeout(
                 ()->
+                  console.log 'getting all values for cadr'
                   cacheEngine.getAllValuesFor(cadr).then (foo)->
-                    bar = foo[0]
                     console.log foo
+                    bar = foo[0]
                     expect(bar).to.contain('master')
                     done()
                   , (reject)->console.log 'got reject from get tile: '+reject
-              ,500
+              ,800
               )
-        ,500
+        ,300
         )
