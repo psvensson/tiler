@@ -118,9 +118,9 @@ class ZonesManager
       tiles: []
 
     @modelEngine.createZone(newzone).then (zoneObj)=>
-      zoneObj.serialize()
-      @zones.set tileid,zoneObj
-      q.resolve(zoneObj)
+      zoneObj.serialize().then ()=>
+        @zones.set tileid,zoneObj
+        q.resolve(zoneObj)
     q
 
   getZoneIdFor:(level,x,y) ->
