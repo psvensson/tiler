@@ -52,6 +52,7 @@ class TilerReplication
     # TODO: Some idiot has mixed a static class managing replicas with a class holding indivudal replica state. This is not a good idea. Choose one!!!
 
   constructor:(@myAddress, @cacheEngine, @communicationManager) ->
+    console.log 'TilerReplication created. address = '+@myAddress
     @oplogs = {}
     @timers = {}
     @replicas = {}
@@ -127,7 +128,7 @@ class TilerReplication
     return q
 
   setOurselvesAsReplica: (zoneObj, kind = 'copy') =>
-    console.log 'setting address '+@myAddress+' to be replica type '+kind+' for zone '+zoneObj.id
+    if debug then console.log 'setting address '+@myAddress+' to be replica type '+kind+' for zone '+zoneObj.id
     @cacheEngine.set('zonereplica_'+zoneObj.tileid+':'+@myAddress, @myAddress+","+Date.now()+","+kind).then ()=>
       @cacheEngine.expireat('zonereplica_'+zoneObj.tileid+':'+@myAddress, TilerReplication.REPLICA_REGISTRATION_EXPIRATION)
       replica = @replicas[zoneObj.id]
@@ -142,7 +143,7 @@ class TilerReplication
     @setOurselvesAsReplica(zoneObj, replica.kind)
 
   checkMasterReplicaFor: (zoneObj) =>
-    console.log 'TilerReplication.checkMasterReplicaFor called for: '+zoneObj.id
+    if debug then console.log 'TilerReplication.checkMasterReplicaFor called for: '+zoneObj.id
     q = defer()
     replica = @replicas[zoneObj.id]
     if not replica then replica = {kind: 'copy', timers:{}}
@@ -156,7 +157,7 @@ class TilerReplication
       else
         master = false
         siblings.forEach (sibling)=>
-          console.log 'checkMasterReplice sibling -> '+sibling
+          if debug then console.log 'checkMasterReplica sibling -> '+sibling
           arr = sibling.split ','
           console.dir arr
           if arr[2] and arr[2] == 'master' then master = true
@@ -168,10 +169,10 @@ class TilerReplication
     return q
 
   registerOurselvesAsMasterFor: (zoneObj, siblings) =>
-    console.log 'TilerReplication.registerOurselvesAsMasterFor called for zone: '+zoneObj.id
+    if debug then console.log 'TilerReplication.registerOurselvesAsMasterFor called for zone: '+zoneObj.id
     replica = @replicas[zoneObj.id]
     if siblings.length  < 2 or @weAreOldestReplicaFor(zoneObj, siblings)
-      console.log 'replica '+@myAddress+' registering as master for replica '+zoneObj.id
+      if debug then console.log 'replica '+@myAddress+' registering as master for replica '+zoneObj.id
       try
         #@deRegisterTimer(zoneObj.id)
         replica.kind = 'master'
@@ -182,7 +183,7 @@ class TilerReplication
         console.dir ex
         xyzzy
     else
-      console.log 'we are not oldest replica. Deferring...'
+      if debug then console.log 'we are not oldest replica. Deferring...'
 
   weAreOldestReplicaFor: (zoneObj, siblings) =>
     rv = false

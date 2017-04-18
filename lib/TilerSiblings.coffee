@@ -55,6 +55,7 @@ class TilerSiblings
   registerAsSiblingForZone: (zoneObj) =>
     q = defer()
     console.log 'TilerSiblings.registerAsSiblingForZone '+zoneObj.tileid+' myAddress = '+@myAddress
+    console.dir zoneObj
     # Get up to speed with current zone changes by requesting oplog from random sibling
     # Registering with the redis-like cache-engine will make all subsequent operations from all other siblings/replicas replicate to us from now on
     @repl.checkMasterReplicaFor(zoneObj).then (becameMaster)=>
