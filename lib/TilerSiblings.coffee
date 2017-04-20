@@ -40,7 +40,7 @@ class TilerSiblings
       if arg2.toClient then command.arg2 = arg2.toClient()
       @repl.addCommandToOplog(zoneObj, command)
       siblings.forEach (sibling) =>
-        console.log 'splitting sibling '+sibling
+        if debug then console.log 'splitting sibling '+sibling
         adr = sibling.split(',')[0]
         if adr isnt @myAddress
           #console.log 'sending command to sibling '+adr

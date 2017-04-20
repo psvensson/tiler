@@ -149,8 +149,8 @@ class TilerReplication
     if not replica then replica = {kind: 'copy', timers:{}}
     @replicas[zoneObj.id] = replica
     @getSiblingsForZone(zoneObj).then (siblings) =>
-      #console.log 'TilerReplication.checkMasterReplicaFor got siblings'
-      #console.dir siblings
+      if debug then console.log 'TilerReplication.checkMasterReplicaFor got siblings'
+      if debug then console.dir siblings
       if siblings.length == 0
         @registerOurselvesAsMasterFor(zoneObj, siblings)
         q.resolve(true)
