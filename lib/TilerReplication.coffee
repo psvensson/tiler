@@ -49,8 +49,6 @@ class TilerReplication
     max: 500
     maxAge: @TIME_BETWEEN_MASTER_SAVES * 3
 
-    # TODO: Some idiot has mixed a static class managing replicas with a class holding indivudal replica state. This is not a good idea. Choose one!!!
-
   constructor:(@myAddress, @cacheEngine, @communicationManager) ->
     console.log 'TilerReplication created. address = '+@myAddress
     @oplogs = {}
@@ -161,6 +159,7 @@ class TilerReplication
           arr = sibling.split ','
           console.dir arr
           if arr[2] and arr[2] == 'master' then master = true
+          if arr[0] == @myAddress then master = false # it's just us, dammit, we probably rebooted quickly and the info hasn't expired yet
         if not master
           @registerOurselvesAsMasterFor(zoneObj, siblings)
           q.resolve(true)
