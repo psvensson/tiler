@@ -77,8 +77,10 @@ class ZonesManager
     else
       @zoneUnderConstruction[tileid] = true
       # check to see if sibling instance have created the zone already
-      @cacheEngine.get('zonereplica_'+tileid).then (exists) =>
+      @cacheEngine.getAllValuesFor('zonereplica_'+tileid+':*').then (exists) =>
         if exists
+          console.log 'zone '+tileid+' exists'
+          console.dir exists
           @storageEngine.find('Zone', 'tileid', tileid).then (zoneObj) =>
             if debug then console.log 'Tiler.lookupZone got back zone obj'
             if zoneObj
