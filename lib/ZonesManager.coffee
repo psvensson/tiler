@@ -85,6 +85,7 @@ class ZonesManager
             if debug then console.log 'Tiler.lookupZone got back zone obj'
             if zoneObj
               if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from db'
+              if debug then console.dir zoneObj
               @registerZone(q, zoneObj)
             else
               if debug then console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
