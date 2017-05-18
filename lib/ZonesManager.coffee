@@ -69,6 +69,7 @@ class ZonesManager
 
   lookupZone : (tileid,q)=>
 #if debug then console.log 'Tiler.lookupZone called for '+tileid
+
     lruZone = @zones.get tileid
     if lruZone
 #if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from lru'
