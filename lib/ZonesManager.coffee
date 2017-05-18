@@ -81,12 +81,14 @@ class ZonesManager
         if exists
           console.log 'zone '+tileid+' exists'
           console.dir exists
-          @storageEngine.find('Zone', 'tileid', tileid).then (zoneObj) =>
-            if debug then console.log 'Tiler.lookupZone got back zone obj'
-            if zoneObj
-              if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from db'
-              if debug then console.dir zoneObj
-              @registerZone(q, zoneObj)
+          @storageEngine.find('Zone', 'tileid', tileid).then (zonez) =>
+            if zones and zones[0]
+              zoneObj = zones[0]
+              if debug then console.log 'Tiler.lookupZone got back zone obj'
+              if zoneObj
+                if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from db'
+                if debug then console.dir zoneObj
+                @registerZone(q, zoneObj)
             else
               if debug then console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
               q.reject(BAD_TILE)
