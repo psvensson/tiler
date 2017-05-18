@@ -81,7 +81,7 @@ class ZonesManager
         if exists
           console.log 'zone '+tileid+' exists'
           console.dir exists
-          @storageEngine.find('Zone', 'tileid', tileid).then (zonez) =>
+          @storageEngine.find('Zone', 'tileid', tileid).then (zones) =>
             if zones and zones[0]
               zoneObj = zones[0]
               if debug then console.log 'Tiler.lookupZone got back zone obj'
