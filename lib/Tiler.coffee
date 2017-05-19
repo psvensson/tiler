@@ -155,6 +155,7 @@ class Tiler
         ,()->
           console.log 'getTileAt got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
           q.reject('could not resolve zone tileid for '+arguments)
+          console.dir(arguments)
       )
     q
 
