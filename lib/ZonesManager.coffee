@@ -7,6 +7,7 @@ QuadTree 	      = require('area-qt')
 debug = process.env["DEBUG"]
 TILE_SIDE = 20
 BAD_TILE = {x:0, y:0, type: -1, ore: -1, stone: -1, features:[]}
+
 lruopts =
   max: 1000
   maxAgeInMilliseconds: 1000 * 60 * 60 * 24 * 4
