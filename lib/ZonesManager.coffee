@@ -85,7 +85,7 @@ class ZonesManager
           @storageEngine.find('Zone', 'id', tileid).then (zones) =>
             if zones and zones[0]
               zoneObj = zones[0]
-              if debug then console.log 'Tiler.ZoneManager.lookupZone got back zone obj'
+              if debug then console.log 'Tiler.ZoneManager.lookupZone got back zone obj '+zoneObj
               if zoneObj
                 if debug then console.log 'Tiler.ZoneManager.lookupZone resolving '+tileid+' from db'
                 #if debug then console.dir zoneObj
