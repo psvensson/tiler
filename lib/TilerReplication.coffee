@@ -180,6 +180,8 @@ class TilerReplication
       catch ex
         console.log 'exception caught: '+ex
         console.dir ex
+        console.log 'zoneObj is'
+        console.dir zoneObj
         xyzzy
     else
       if debug then console.log 'we are not oldest replica. Deferring...'
