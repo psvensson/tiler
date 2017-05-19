@@ -154,7 +154,7 @@ class Tiler
             q.resolve(BAD_TILE)
         ,()->
           console.log 'getTileAt got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
-          q.reject('could not resolve zone tileid for '+(arguments.join('_')))
+          q.reject('could not resolve zone tileid for '+arguments)
       )
     q
 
