@@ -80,18 +80,18 @@ class ZonesManager
       # check to see if sibling instance have created the zone already
       @cacheEngine.getAllValuesFor('zonereplica_'+tileid+':*').then (exists) =>
         if exists
-          console.log 'zone '+tileid+' exists'
+          console.log '.ZoneManager zone '+tileid+' exists'
           console.dir exists
-          @storageEngine.find('Zone', 'tileid', tileid).then (zones) =>
+          @storageEngine.find('Zone', 'id', tileid).then (zones) =>
             if zones and zones[0]
               zoneObj = zones[0]
-              if debug then console.log 'Tiler.lookupZone got back zone obj'
+              if debug then console.log 'Tiler.ZoneManager.lookupZone got back zone obj'
               if zoneObj
-                if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from db'
+                if debug then console.log 'Tiler.ZoneManager.lookupZone resolving '+tileid+' from db'
                 #if debug then console.dir zoneObj
                 @registerZone(q, zoneObj)
             else
-              if debug then console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
+              if debug then console.log '** Tiler.ZoneManager Could not find supposedly existing zone '+tileid+' !!!!!'
               q.reject(BAD_TILE)
         else
           if debug then console.log 'Tiler.lookupZone zone '+tileid+' ****************** not found, so creating new..'
