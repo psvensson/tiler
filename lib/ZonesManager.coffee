@@ -6,6 +6,7 @@ QuadTree 	      = require('area-qt')
 
 debug = process.env["DEBUG"]
 TILE_SIDE = 20
+BAD_TILE = {x:0, y:0, type: -1, ore: -1, stone: -1, features:[]}
 lruopts =
   max: 1000
   maxAgeInMilliseconds: 1000 * 60 * 60 * 24 * 4
@@ -68,11 +69,10 @@ class ZonesManager
         q.resolve(zoneObj)
 
   lookupZone : (tileid,q)=>
-#if debug then console.log 'Tiler.lookupZone called for '+tileid
-
+    #if debug then console.log 'Tiler.lookupZone called for '+tileid
     lruZone = @zones.get tileid
     if lruZone
-#if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from lru'
+      #if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from lru'
       q.resolve(lruZone)
     else
       @zoneUnderConstruction[tileid] = true
@@ -87,7 +87,7 @@ class ZonesManager
               if debug then console.log 'Tiler.lookupZone got back zone obj'
               if zoneObj
                 if debug then console.log 'Tiler.lookupZone resolving '+tileid+' from db'
-                if debug then console.dir zoneObj
+                #if debug then console.dir zoneObj
                 @registerZone(q, zoneObj)
             else
               if debug then console.log '** Tiler Could not find supposedly existing zone '+tileid+' !!!!!'
