@@ -42,6 +42,7 @@ class ZonesManager
 
   registerZone : (q, zoneObj)=>
     arr = zoneObj.tileid.split('_')
+    level = arr[0]
     x = arr[1]
     y = arr[2]
     itemQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
