@@ -51,7 +51,7 @@ class ZonesManager
     entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
     @te.zoneEntityQuadTrees[zoneObj.tileid] = entityQT
     zoneObj.entities.forEach (entity) => @te._setSomething(level, entity, entityQT, 'entities', q, true).then (zo)=>
-    ztiles = @zoneTiles[zoneObj.tileid] or {}
+    ztiles = @te.zoneTiles[zoneObj.tileid] or {}
     zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
     @te.zoneTiles[zoneObj.tileid] = ztiles
     if debug then console.log 'Tiler.registerZone adds item and entity QTs for tileid '+zoneObj.tileid
