@@ -47,10 +47,10 @@ class ZonesManager
     y = arr[2]
     itemQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
     @te.zoneItemQuadTrees[zoneObj.tileid] = itemQT
-    zoneObj.items.forEach (item) => @te._setSomething(level, item, itemQT, 'items', q, true).then (zo)=>
+    zoneObj.items.forEach (item) => @te._setSomething(level, item, @te.zoneItemQuadTrees, 'items', q, true).then (zo)=>
     entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
     @te.zoneEntityQuadTrees[zoneObj.tileid] = entityQT
-    zoneObj.entities.forEach (entity) => @te._setSomething(level, entity, entityQT, 'entities', q, true).then (zo)=>
+    zoneObj.entities.forEach (entity) => @te._setSomething(level, entity, @te.zoneEntityQuadTrees, 'entities', q, true).then (zo)=>
     ztiles = @te.zoneTiles[zoneObj.tileid] or {}
     zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
     @te.zoneTiles[zoneObj.tileid] = ztiles
