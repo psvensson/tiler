@@ -156,31 +156,31 @@
     it("should be able to calculate zoneid for positive x,y", function(done) {
       var zid;
       zid = tiler.getZoneIdFor(1, 23, 25);
-      expect(zid).to.equal('1_20_20');
+      expect(zid).to.equal('1_20_40');
       return done();
     });
     it("should be able to calculate zoneid for 0,0", function(done) {
       var zid;
       zid = tiler.getZoneIdFor(1, 0, 0);
-      expect(zid).to.equal('1_0_0');
+      expect(zid).to.equal('1_0_20');
       return done();
     });
     it("should be able to calculate zoneid for 1,1", function(done) {
       var zid;
       zid = tiler.getZoneIdFor(1, 1, 1);
-      expect(zid).to.equal('1_0_0');
+      expect(zid).to.equal('1_0_20');
       return done();
     });
     it("should be able to calculate zoneid for negative x,y", function(done) {
       var zid;
       zid = tiler.getZoneIdFor(1, -44, -4);
-      expect(zid).to.equal('1_-40_0');
+      expect(zid).to.equal('1_-60_0');
       return done();
     });
     it("should be able to calculate zoneid for mixed x,y", function(done) {
       var zid;
-      zid = tiler.getZoneIdFor(1, 114, -294);
-      expect(zid).to.equal('1_100_-280');
+      zid = tiler.getZoneIdFor(1, 1, -8);
+      expect(zid).to.equal('1_0_0');
       return done();
     });
     it("should be able to resolve and create a new zone", function(done) {

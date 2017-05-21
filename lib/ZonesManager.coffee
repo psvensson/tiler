@@ -128,12 +128,25 @@ class ZonesManager
     q
 
   getZoneIdFor:(level,x,y) ->
-    xr = x % TILE_SIDE
-    yr = y % TILE_SIDE
-    zx =  (x - xr)
-    zy =  (y - yr)
-    level+'_'+zx+'_'+zy
+    console.log 'getZoneIdFor '+level+','+x+','+y
+    xrest = (x % TILE_SIDE)
+    yrest = (y % TILE_SIDE)
+    console.log 'xrest='+xrest+', yrest='+yrest
+    # subtract the rest from the original coordinates to get top left of the quadrant
+    if y > -1
+      qtop = (y - yrest) + TILE_SIDE
+    else
+      qtop = y - yrest
 
+    if x > -1
+      qleft = x - xrest
+    else
+      qleft = (x - xrest) - TILE_SIDE
+    zx = qleft
+    zy = qtop
+    rv = level+'_'+zx+'_'+zy
+    console.log 'qtop = '+qtop+', qleft = '+qleft+' result = '+rv
+    rv
 
 
 module.exports = ZonesManager

@@ -119,27 +119,27 @@ describe "Tiler test", ()->
 
   it "should be able to calculate zoneid for positive x,y", (done)->
     zid = tiler.getZoneIdFor(1,23,25)
-    expect(zid).to.equal('1_20_20')
+    expect(zid).to.equal('1_20_40')
     done()
 
   it "should be able to calculate zoneid for 0,0", (done)->
     zid = tiler.getZoneIdFor(1,0,0)
-    expect(zid).to.equal('1_0_0')
+    expect(zid).to.equal('1_0_20')
     done()
 
   it "should be able to calculate zoneid for 1,1", (done)->
     zid = tiler.getZoneIdFor(1,1,1)
-    expect(zid).to.equal('1_0_0')
+    expect(zid).to.equal('1_0_20')
     done()
 
   it "should be able to calculate zoneid for negative x,y", (done)->
     zid = tiler.getZoneIdFor(1,-44,-4)
-    expect(zid).to.equal('1_-40_0')
+    expect(zid).to.equal('1_-60_0')
     done()
 
   it "should be able to calculate zoneid for mixed x,y", (done)->
-    zid = tiler.getZoneIdFor(1,114,-294)
-    expect(zid).to.equal('1_100_-280')
+    zid = tiler.getZoneIdFor(1,1,-8)
+    expect(zid).to.equal('1_0_0')
     done()
 
   it "should be able to resolve and create a new zone", (done)->
