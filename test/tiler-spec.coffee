@@ -13,6 +13,10 @@ describe "Tiler test", ()->
 
   storageEngine =
     find: (type, prop, val)->
+      console.log 'storageEngine.find called.'
+      console.dir arguments
+      console.log 'contents are'
+      console.dir storage
       q = defer()
       result = undefined
       for i,o of storage
@@ -21,10 +25,12 @@ describe "Tiler test", ()->
       q.resolve(result)
       q
     get: (id)->
+      console.log 'storageEngine.get id='+id
       q = defer()
       q.resolve(storage[id])
       q
     set: (id, obj)->
+      console.log 'storageEngine.set id='+id
       q = defer()
       storage[id] = obj
       q.resolve()

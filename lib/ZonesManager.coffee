@@ -80,9 +80,7 @@ class ZonesManager
       @zoneUnderConstruction[tileid] = true
       # check to see if sibling instance have created the zone already
       @te.cacheEngine.getAllValuesFor('zonereplica_'+tileid+':*').then (exists) =>
-        if exists
-          console.log 'ZoneManager zone '+tileid+' exists'
-          console.dir exists
+        if exists and exists.length and exists.length > 0
           @te.storageEngine.find('Zone', 'id', tileid).then (zoneObj) =>
             if zoneObj
               if debug then console.log 'Tiler.ZoneManager.lookupZone got back zone obj '+zoneObj
@@ -90,10 +88,10 @@ class ZonesManager
               #if debug then console.dir zoneObj
               @registerZone(q, zoneObj)
             else
-              if debug then console.log '** Tiler.ZoneManager Could not find supposedly existing zone '+tileid+' !!!!!'
+              console.log '** Tiler.ZoneManager Could not find supposedly existing zone '+tileid+' !!!!!'
               q.reject(BAD_TILE)
         else
-          if debug then console.log 'Tiler.lookupZone zone '+tileid+' ****************** not found, so creating new..'
+          console.log 'Tiler.lookupZone zone '+tileid+' ****************** not found, so creating new..'
           @createNewZone(tileid).then (zoneObj) =>
             @registerZone(q, zoneObj)
 

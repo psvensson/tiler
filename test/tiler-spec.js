@@ -19,6 +19,10 @@
     storageEngine = {
       find: function(type, prop, val) {
         var i, k, o, q, result, v;
+        console.log('storageEngine.find called.');
+        console.dir(arguments);
+        console.log('contents are');
+        console.dir(storage);
         q = defer();
         result = void 0;
         for (i in storage) {
@@ -35,12 +39,14 @@
       },
       get: function(id) {
         var q;
+        console.log('storageEngine.get id=' + id);
         q = defer();
         q.resolve(storage[id]);
         return q;
       },
       set: function(id, obj) {
         var q;
+        console.log('storageEngine.set id=' + id);
         q = defer();
         storage[id] = obj;
         q.resolve();
