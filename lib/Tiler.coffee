@@ -22,7 +22,7 @@ class Tiler
     @zoneItemQuadTrees = {}
     @zoneEntityQuadTrees = {}
     @zoneTiles = {}
-    @zmgr = new ZonesManager(@storageEngine, @cacheEngine, @modelEngine, @myAddress, @communicationManager, @zoneItemQuadTrees, @zoneEntityQuadTrees, @zoneTiles)
+    @zmgr = new ZonesManager(@)
     @communicationManager.registerForUpdates(@myAddress, @onSiblingUpdate)
 
   persistDirtyZones: () =>

@@ -15,20 +15,20 @@ lruopts =
 
 class ZonesManager
 
-  constructor:(@storageEngine, @cacheEngine, @modelEngine, @myAddress, @communicationManager, @zoneItemQuadTrees, @zoneEntityQuadTrees,@zoneTiles)->
+  constructor:(@te)->
     @zoneUnderConstruction = {}
     @postContructionCallbacks = {}
     @zones = new lru(lruopts)
     @zones.on 'evict', @onZoneEvicted
-    @siblings = new Siblings(@myAddress, @communicationManager, @cacheEngine, @modelEngine)
-    @communicationManager.registerForUpdates(@myAddress, @onSiblingUpdate)
+    @siblings = new Siblings(@te.myAddress, @te.communicationManager, @te.cacheEngine, @te.modelEngine)
+    @te.communicationManager.registerForUpdates(@te.myAddress, @onSiblingUpdate)
 
   onZoneEvicted:(zoneObj) => @siblings.deRegisterAsSiblingForZone(zoneObj)
 
   shutdown:(zo)=>@siblings.shutdown(zo)
 
   onSiblingUpdate:(_command, cb)=>
-    #console.log '*=============================== ZonesManager.onSiblingUpdate called for tiler '+@myAddress+' command -> '
+    #console.log '*=============================== ZonesManager.onSiblingUpdate called for tiler '+@te.myAddress+' command -> '
     command = JSON.parse(_command)
     #console.dir command
     arg1 = command.arg1
@@ -47,27 +47,27 @@ class ZonesManager
     y = arr[2]
     itemQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
     @zoneItemQuadTrees[zoneObj.tileid] = itemQT
-    zoneObj.items.forEach (item) => @_setSomething(level, item, itemQT, 'items', q, true).then (zo)=>
+    zoneObj.items.forEach (item) => @te._setSomething(level, item, itemQT, 'items', q, true).then (zo)=>
     entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
     @zoneEntityQuadTrees[zoneObj.tileid] = entityQT
-    zoneObj.entities.forEach (entity) => @_setSomething(level, entity, entityQT, 'entities', q, true).then (zo)=>
+    zoneObj.entities.forEach (entity) => @te._setSomething(level, entity, entityQT, 'entities', q, true).then (zo)=>
     ztiles = @zoneTiles[zoneObj.tileid] or {}
     zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
     @zoneTiles[zoneObj.tileid] = ztiles
     if debug then console.log 'Tiler.registerZone adds item and entity QTs for tileid '+zoneObj.tileid
     @zones.set zoneObj.tileid,zoneObj
     @siblings.registerAsSiblingForZone(zoneObj).then ()=>
-#if debug then console.log 'Tiler.registerZone back in business'
+      #if debug then console.log 'Tiler.registerZone back in business'
       if @zoneUnderConstruction[zoneObj.tileid] == true
         delete @zoneUnderConstruction[zoneObj.tileid]
         cbs = @postContructionCallbacks[zoneObj.tileid] or []
         cbs.forEach (cb) =>
           if debug then console.log '<------ resolving paused lookup of zone'
           cb()
-        #if debug then console.log 'Tiler.registerZone done'
+          #if debug then console.log 'Tiler.registerZone done'
         q.resolve(zoneObj)
       else
-#if debug then console.log 'Tiler.registerZone done 2'
+        #if debug then console.log 'Tiler.registerZone done 2'
         q.resolve(zoneObj)
 
   lookupZone : (tileid,q)=>
@@ -79,7 +79,7 @@ class ZonesManager
     else
       @zoneUnderConstruction[tileid] = true
       # check to see if sibling instance have created the zone already
-      @cacheEngine.getAllValuesFor('zonereplica_'+tileid+':*').then (exists) =>
+      @te.cacheEngine.getAllValuesFor('zonereplica_'+tileid+':*').then (exists) =>
         if exists
           console.log '.ZoneManager zone '+tileid+' exists'
           console.dir exists
@@ -124,7 +124,7 @@ class ZonesManager
       entities: []
       tiles: []
 
-    @modelEngine.createZone(newzone).then (zoneObj)=>
+    @te.modelEngine.createZone(newzone).then (zoneObj)=>
       zoneObj.serialize().then ()=>
         @zones.set tileid,zoneObj
         q.resolve(zoneObj)
