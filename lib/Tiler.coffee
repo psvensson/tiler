@@ -232,13 +232,15 @@ class Tiler
     )
 
   _setSomething:(level, something, qthash, propname, q, skipadd) =>
-    if debug then console.log 'Tiler._setSomething called'
-    if debug then console.dir arguments
+    #if debug then console.log 'Tiler._setSomething called'
+    #if debug then console.dir arguments
     qq = defer()
     @zmgr.resolveZoneFor(level, something.x, something.y).then(
       (zoneObj)=>
         if zoneObj
           qt = qthash[zoneObj.tileid]
+          if debug then 'Tiles._setSomething inserting to zone '+zoneObj.tileid
+          if debug then console.dir something
           qt.insert(something)
           if not skipadd
             # actually insert it into zone too!!!
