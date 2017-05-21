@@ -46,7 +46,7 @@ class ZonesManager
     x = arr[1]
     y = arr[2]
     itemQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
-    @zoneItemQuadTrees[zoneObj.tileid] = itemQT
+    @te.zoneItemQuadTrees[zoneObj.tileid] = itemQT
     zoneObj.items.forEach (item) => @te._setSomething(level, item, itemQT, 'items', q, true).then (zo)=>
     entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
     @zoneEntityQuadTrees[zoneObj.tileid] = entityQT
@@ -81,15 +81,14 @@ class ZonesManager
       # check to see if sibling instance have created the zone already
       @te.cacheEngine.getAllValuesFor('zonereplica_'+tileid+':*').then (exists) =>
         if exists
-          console.log '.ZoneManager zone '+tileid+' exists'
+          console.log 'ZoneManager zone '+tileid+' exists'
           console.dir exists
           @te.storageEngine.find('Zone', 'id', tileid).then (zoneObj) =>
             if zoneObj
               if debug then console.log 'Tiler.ZoneManager.lookupZone got back zone obj '+zoneObj
-              if zoneObj
-                if debug then console.log 'Tiler.ZoneManager.lookupZone resolving '+tileid+' from db'
-                #if debug then console.dir zoneObj
-                @registerZone(q, zoneObj)
+              if debug then console.log 'Tiler.ZoneManager.lookupZone resolving '+tileid+' from db'
+              #if debug then console.dir zoneObj
+              @registerZone(q, zoneObj)
             else
               if debug then console.log '** Tiler.ZoneManager Could not find supposedly existing zone '+tileid+' !!!!!'
               q.reject(BAD_TILE)
