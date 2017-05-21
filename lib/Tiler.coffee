@@ -232,6 +232,8 @@ class Tiler
     )
 
   _setSomething:(level, something, qthash, propname, q, skipadd) =>
+    if debug then console.log 'Tiler._setSomething called'
+    if debug then console.dir arguments
     qq = defer()
     @zmgr.resolveZoneFor(level, something.x, something.y).then(
       (zoneObj)=>
