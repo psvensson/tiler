@@ -47,10 +47,16 @@ class ZonesManager
     y = arr[2]
     itemQT = new QuadTree(8192, 32, 8, parseInt(x), parseInt(y))
     @te.zoneItemQuadTrees[zoneObj.tileid] = itemQT
-    zoneObj.items.forEach (item) => @te._setSomething(level, item, @te.zoneItemQuadTrees, 'items', q, true).then (zo)=>
+    zoneObj.items.forEach (item) =>
+      iq = defer()
+      console.log 'registerZone adding existing item from store to zone '+item.id
+      @te._setSomething(level, item, @te.zoneItemQuadTrees, 'items', iq, true).then (zo)=>
     entityQT = new QuadTree(8192, 32, 8, parseInt(x), parseInt(y))
     @te.zoneEntityQuadTrees[zoneObj.tileid] = entityQT
-    zoneObj.entities.forEach (entity) => @te._setSomething(level, entity, @te.zoneEntityQuadTrees, 'entities', q, true).then (zo)=>
+    zoneObj.entities.forEach (entity) =>
+      eq = defer()
+      console.log 'registerZone adding existing entity from store to zone '+entity.id
+      @te._setSomething(level, entity, @te.zoneEntityQuadTrees, 'entities', eq, true).then (zo)=>
     ztiles = @te.zoneTiles[zoneObj.tileid] or {}
     zoneObj.tiles.forEach (tile) => ztiles[tile.x+'_'+tile.y] = tile
     @te.zoneTiles[zoneObj.tileid] = ztiles

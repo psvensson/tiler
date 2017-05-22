@@ -105,6 +105,7 @@ class Tiler
 
   addEntity:(level, entity, doNotPropagate)=>
     q = defer()
+    if debug then console.log '== addEntity called'
     @_setSomething(level, entity, @zoneEntityQuadTrees, 'entities', q).then (zoneObj)=>
       if not doNotPropagate then @zmgr.siblings.sendCommand zoneObj,Siblings.CMD_ADD_ENTITY,level,entity
     q
@@ -253,7 +254,7 @@ class Tiler
                 stuff[i] = something
             if not found then stuff.push something
             @dirtyZones[zoneObj.tileid] = zoneObj
-          if debug then console.log 'Tiler._setSomething resolving true for '+something.type+' at '+zoneObj.tileid
+          if debug then console.log '=============== Tiler._setSomething resolving true for '+something.type+' at '+zoneObj.tileid
           q.resolve(true)
           qq.resolve(zoneObj)
     ,()->
