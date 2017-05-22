@@ -68,7 +68,7 @@ class ZonesManager
         delete @zoneUnderConstruction[zoneObj.tileid]
         cbs = @postContructionCallbacks[zoneObj.tileid] or []
         cbs.forEach (cb) =>
-          if debug then console.log '<------ resolving paused lookup of zone '+zoneObj.tileid
+          #if debug then console.log '<------ resolving paused lookup of zone '+zoneObj.tileid
           cb()
           #if debug then console.log 'Tiler.registerZone done'
         q.resolve(zoneObj)
@@ -108,7 +108,7 @@ class ZonesManager
     underConstruction = @zoneUnderConstruction[tid]
     #if debug then console.log 'Tiler.resolveZoneFor '+tid+' under construction = '+underConstruction
     if underConstruction
-      if debug then console.log '------> waiting for zone construction for '+tid
+      #if debug then console.log '------> waiting for zone construction for '+tid
       cbs = @postContructionCallbacks[tid] or []
       cbs.push ()=>@lookupZone(tid, q)
       @postContructionCallbacks[tid] = cbs
