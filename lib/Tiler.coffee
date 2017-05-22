@@ -242,7 +242,7 @@ class Tiler
           if debug then 'Tiles._setSomething inserting '+something.type+' to zone '+zoneObj.tileid
           if not something.width then something.width = 1
           if not something.height then something.height = 1
-          if debug then console.dir something
+          #if debug then console.dir something
           qt.insert(something)
           if not skipadd
             # actually insert it into zone too!!!
