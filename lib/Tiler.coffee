@@ -253,7 +253,7 @@ class Tiler
                 stuff[i] = something
             if not found then stuff.push something
             @dirtyZones[zoneObj.tileid] = zoneObj
-          if debug then console.log 'Tiler._setSomething resolving true for '+something.type+' at '+x+','+y
+          if debug then console.log 'Tiler._setSomething resolving true for '+something.type+' at '+zoneObj.tileid
           q.resolve(true)
           qq.resolve(zoneObj)
     ,()->
