@@ -226,9 +226,12 @@ class Tiler
         if zoneObj
           qt = qthash[zoneObj.tileid]
           something = qt.get({x: x, y: y, width:1, height:1})
-          #console.log '_getSomething got back'
-          #console.dir something
-          q.resolve(something[0].data)
+          if debug then console.log '_getSomething got back'
+          if debug then console.dir something
+          if something and something[0]
+            q.resolve(something[0].data)
+          else
+            q.resolve()
     ,()->
       console.log '_getSomething got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
       q.reject('could not resolve zone tileid for '+(arguments.join('_')))
