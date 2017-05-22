@@ -33,14 +33,14 @@ class TilerSiblings
     #console.log 'TilerSiblings.sendCommand called for '+cmd
     #console.dir arguments
     @repl.getSiblingsForZone(zoneObj).then (siblings) =>
-      if debug then console.log 'TilerSiblings.sendCommand got these siblings:'+JSON.stringify(siblings)
+      #if debug then console.log 'TilerSiblings.sendCommand got these siblings:'+JSON.stringify(siblings)
       command = {cmd: cmd, arg1: arg1, arg2: arg2}
       # If arguments are actual spincycle objects, make sure to flatten them before packing them up and sending them away
       if arg1.toClient then command.arg1 = arg1.toClient()
       if arg2.toClient then command.arg2 = arg2.toClient()
       @repl.addCommandToOplog(zoneObj, command)
       siblings.forEach (sibling) =>
-        if debug then console.log 'splitting sibling '+sibling
+        #if debug then console.log 'splitting sibling '+sibling
         adr = sibling.split(',')[0]
         if adr isnt @myAddress
           #console.log 'sending command to sibling '+adr
