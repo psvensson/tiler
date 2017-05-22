@@ -73,6 +73,8 @@
       getAllValuesFor: function(_wildcard) {
         var k, kk, match, q, rv, v, wildcard;
         wildcard = _wildcard.replace('*', '');
+        console.log('cacheEngine.getAllValuesFor called for "' + wildcard + '"');
+        console.dir(cache);
         q = defer();
         rv = [];
         for (k in cache) {
@@ -258,9 +260,11 @@
         return tiler.zmgr.resolveZoneFor(1, 30, 40).then(function(zoneObj) {
           var addedItem, itemQT;
           itemQT = tiler.zoneItemQuadTrees[zoneObj.tileid];
-          addedItem = itemQT.retrieve({
+          addedItem = itemQT.get({
             x: 30,
-            y: 40
+            y: 40,
+            width: 1,
+            height: 1
           });
           expect(addedItem).to.exist;
           return done();
@@ -325,6 +329,8 @@
       }).then(function() {
         var zone;
         zone = tiler.dirtyZones['1_60_80'];
+        console.log('dirtyZones are');
+        console.dir(tiler.dirtyZones);
         expect(zone).to.exist;
         return done();
       });
@@ -365,7 +371,7 @@
         console.log('>>> resolving zone tiler2');
         return tiler2.zmgr.resolveZoneFor(2, 0, 0).then(function(czone) {
           return setTimeout(function() {
-            console.log('>>> getting alla values for ' + madr);
+            console.log('>>> getting all values for ' + madr);
             return cacheEngine.getAllValuesFor(madr).then(function(moo) {
               console.log('master replica info before shutdown is ' + moo);
               tiler1.zmgr.shutdown(mzone);

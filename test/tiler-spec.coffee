@@ -50,8 +50,8 @@ describe "Tiler test", ()->
       q
     getAllValuesFor: (_wildcard)->
       wildcard = _wildcard.replace('*','')
-      #console.log 'cacheEngine.getAllValuesFor called for "'+wildcard+'"'
-      #console.dir cache
+      console.log 'cacheEngine.getAllValuesFor called for "'+wildcard+'"'
+      console.dir cache
       q = defer()
       rv = []
       for k,v of cache
@@ -179,7 +179,7 @@ describe "Tiler test", ()->
     tiler.addItem(1, item).then ()->
       tiler.zmgr.resolveZoneFor(1,30,40).then (zoneObj)->
         itemQT = tiler.zoneItemQuadTrees[zoneObj.tileid]
-        addedItem = itemQT.retrieve({x:30, y: 40})
+        addedItem = itemQT.get({x:30, y: 40, width:1, height:1})
         expect(addedItem).to.exist
         done()
 
@@ -217,6 +217,8 @@ describe "Tiler test", ()->
   it "should be able set a tile and have coresponding zone added to dirtyZones", (done)->
     tiler.setTileAt(1, {id:'foo', type: 'bar',x:79, y:94}).then ()->
       zone =  tiler.dirtyZones['1_60_80']
+      console.log 'dirtyZones are'
+      console.dir tiler.dirtyZones
       expect(zone).to.exist
       done()
 
@@ -251,7 +253,7 @@ describe "Tiler test", ()->
       tiler2.zmgr.resolveZoneFor(2,0,0).then (czone)->
         setTimeout(
           ()->
-            console.log '>>> getting alla values for '+madr
+            console.log '>>> getting all values for '+madr
             cacheEngine.getAllValuesFor(madr).then (moo)->
               console.log 'master replica info before shutdown is '+moo
               tiler1.zmgr.shutdown(mzone)

@@ -1,6 +1,6 @@
 {
   "name": "tiler-engine",
-  "version": "1.0.71",
+  "version": "1.0.72",
   "description": "A tile engine which stores a sparse area of zones in a lru and makes adressable a MAXINTxMAXINT area",
   "main": "index.js",
   "directories": {
@@ -11,6 +11,7 @@
     "lru": "^3.0.0",
     "lru-cache": "^4.0.2",
     "node-promise": "^0.5.12",
+    "node-trees": "0.0.2",
     "priorityqueue": "^0.2.0"
   },
   "devDependencies": {},

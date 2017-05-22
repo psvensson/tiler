@@ -2,7 +2,7 @@ defer           = require('node-promise').defer
 lru             = require('lru')
 
 Siblings        = require('./TilerSiblings')
-QuadTree 	      = require('area-qt')
+QuadTree = require('node-trees').QuadTree
 
 debug = process.env["DEBUG"]
 TILE_SIDE = 20
@@ -45,10 +45,10 @@ class ZonesManager
     level = arr[0]
     x = arr[1]
     y = arr[2]
-    itemQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
+    itemQT = new QuadTree(8192, 32, 8, parseInt(x), parseInt(y))
     @te.zoneItemQuadTrees[zoneObj.tileid] = itemQT
     zoneObj.items.forEach (item) => @te._setSomething(level, item, @te.zoneItemQuadTrees, 'items', q, true).then (zo)=>
-    entityQT = new QuadTree(x:x, y:y, height: TILE_SIDE, width: TILE_SIDE)
+    entityQT = new QuadTree(8192, 32, 8, parseInt(x), parseInt(y))
     @te.zoneEntityQuadTrees[zoneObj.tileid] = entityQT
     zoneObj.entities.forEach (entity) => @te._setSomething(level, entity, @te.zoneEntityQuadTrees, 'entities', q, true).then (zo)=>
     ztiles = @te.zoneTiles[zoneObj.tileid] or {}
