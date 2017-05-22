@@ -13,10 +13,10 @@ describe "Tiler test", ()->
 
   storageEngine =
     find: (type, prop, val)->
-      console.log 'storageEngine.find called.'
-      console.dir arguments
-      console.log 'contents are'
-      console.dir storage
+      #console.log 'storageEngine.find called.'
+      #console.dir arguments
+      #console.log 'contents are'
+      #console.dir storage
       q = defer()
       result = undefined
       for i,o of storage
@@ -185,6 +185,8 @@ describe "Tiler test", ()->
 
   it "should be able to get an item", (done)->
     tiler.getItemAt(1, 30, 40).then (item)->
+      console.log 'get item is'
+      console.dir item
       expect(item).to.exist
       done()
 

@@ -226,7 +226,9 @@ class Tiler
         if zoneObj
           qt = qthash[zoneObj.tileid]
           something = qt.get({x: x, y: y, width:1, height:1})
-          q.resolve(something[0])
+          #console.log '_getSomething got back'
+          #console.dir something
+          q.resolve(something[0].data)
     ,()->
       console.log '_getSomething got reject from resolveZoneFor for level '+level+' x '+x+' y '+y
       q.reject('could not resolve zone tileid for '+(arguments.join('_')))
@@ -244,7 +246,7 @@ class Tiler
           if not something.width then something.width = 1
           if not something.height then something.height = 1
           #if debug then console.dir something
-          qt.insert(something)
+          qt.insert(something, something)
           if not skipadd
             # actually insert it into zone too!!!
             stuff = zoneObj[propname]

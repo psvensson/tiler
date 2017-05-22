@@ -19,10 +19,6 @@
     storageEngine = {
       find: function(type, prop, val) {
         var i, k, o, q, result, v;
-        console.log('storageEngine.find called.');
-        console.dir(arguments);
-        console.log('contents are');
-        console.dir(storage);
         q = defer();
         result = void 0;
         for (i in storage) {
@@ -273,6 +269,8 @@
     });
     it("should be able to get an item", function(done) {
       return tiler.getItemAt(1, 30, 40).then(function(item) {
+        console.log('get item is');
+        console.dir(item);
         expect(item).to.exist;
         return done();
       });
