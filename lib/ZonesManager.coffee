@@ -128,10 +128,10 @@ class ZonesManager
     q
 
   getZoneIdFor:(level,x,y) ->
-    console.log 'getZoneIdFor '+level+','+x+','+y
+    #console.log 'getZoneIdFor '+level+','+x+','+y
     xrest = (x % TILE_SIDE)
     yrest = (y % TILE_SIDE)
-    console.log 'xrest='+xrest+', yrest='+yrest
+    #console.log 'xrest='+xrest+', yrest='+yrest
     # subtract the rest from the original coordinates to get top left of the quadrant
     if y > -1
       qtop = (y - yrest) + TILE_SIDE
@@ -145,7 +145,7 @@ class ZonesManager
     zx = qleft
     zy = qtop
     rv = level+'_'+zx+'_'+zy
-    console.log 'qtop = '+qtop+', qleft = '+qleft+' result = '+rv
+    #console.log 'qtop = '+qtop+', qleft = '+qleft+' result = '+rv
     rv
 
 

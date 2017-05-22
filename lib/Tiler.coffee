@@ -239,7 +239,7 @@ class Tiler
       (zoneObj)=>
         if zoneObj
           qt = qthash[zoneObj.tileid]
-          if debug then 'Tiles._setSomething inserting to zone '+zoneObj.tileid
+          if debug then 'Tiles._setSomething inserting '+something.type+' to zone '+zoneObj.tileid
           if not something.width then something.width = 1
           if not something.height then something.height = 1
           if debug then console.dir something
