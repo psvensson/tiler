@@ -50,8 +50,8 @@ describe "Tiler test", ()->
       q
     getAllValuesFor: (_wildcard)->
       wildcard = _wildcard.replace('*','')
-      console.log 'cacheEngine.getAllValuesFor called for "'+wildcard+'"'
-      console.dir cache
+      #console.log 'cacheEngine.getAllValuesFor called for "'+wildcard+'"'
+      #console.dir cache
       q = defer()
       rv = []
       for k,v of cache
@@ -196,6 +196,35 @@ describe "Tiler test", ()->
       tiler.getItemAt(1, 30, 40).then (olditem)->
         expect(olditem).to.not.exist
         done()
+
+  it "should be able to add an entity", (done)->
+    e = {name: 'entity 1', x:30, y: 40, height:1, width: 1}
+    tiler.addEntity(1, e).then ()->
+      tiler.zmgr.resolveZoneFor(1,30,40).then (zoneObj)->
+        entityQT = tiler.zoneEntityQuadTrees[zoneObj.tileid]
+        addedEntity = entityQT.get({x:30, y: 40, width:1, height:1})
+        expect(addedEntity).to.exist
+        done()
+
+  it "should be able to get an entity", (done)->
+    tiler.getItemAt(1, 30, 40).then (entity)->
+      console.log 'get entity is'
+      console.dir entity
+      expect(entity).to.exist
+      done()
+
+  it "should be able to remove an entity", (done)->
+    e = {name: 'entity 2', x:32, y: 40, height:1, width: 1}
+    tiler.addEntity(1, e).then ()->
+      console.log 'entity 2 added'
+      tiler.removeEntity(1, e).then (result)->
+        console.log 'entity 2 removed'
+        console.dir result
+        tiler.getEntityAt(1, 32, 40).then (olde)->
+          console.log 'trying to get entity 2 again..'
+          console.dir olde
+          expect(olde).to.not.exist
+          done()
 
   it "should be able to set up two sibling Tile engines and have updates on one propagate to the other", (done)->
     tiler1 = new Tiler(storageEngine, cacheEngine, modelEngine, "a", communicationManager)

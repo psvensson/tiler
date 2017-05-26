@@ -227,7 +227,7 @@ class Tiler
         if zoneObj
           qt = qthash[zoneObj.tileid]
           something = qt.get({x: x, y: y, width:1, height:1})
-          if debug then console.log '_getSomething got back'
+          if debug then console.log '_getSomething for '+level+','+x+','+y+' got back'
           if debug then console.dir something
           if something and something[0]
             q.resolve(something[0].data)
@@ -247,6 +247,7 @@ class Tiler
         if zoneObj
           qt = qthash[zoneObj.tileid]
           if debug then 'Tiles._setSomething inserting '+something.type+' to zone '+zoneObj.tileid
+          console.dir something
           if not something.width then something.width = 1
           if not something.height then something.height = 1
           #if debug then console.dir something
@@ -276,7 +277,11 @@ class Tiler
       (zoneObj)=>
         if zoneObj
           qt = qthash[zoneObj.tileid]
-          qt.remove(something)
+          console.log 'removeSomething removing from zone '+zoneObj.tileid+' :'
+          console.dir something
+          rres = qt.remove(something,something)
+          console.log 'result of remove was '+rres
+          console.dir rres
           @dirtyZones[zoneObj.tileid] = zoneObj
           stuff = zoneObj[propname]
           index = -1

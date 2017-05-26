@@ -69,8 +69,6 @@
       getAllValuesFor: function(_wildcard) {
         var k, kk, match, q, rv, v, wildcard;
         wildcard = _wildcard.replace('*', '');
-        console.log('cacheEngine.getAllValuesFor called for "' + wildcard + '"');
-        console.dir(cache);
         q = defer();
         rv = [];
         for (k in cache) {
@@ -288,6 +286,61 @@
         return tiler.getItemAt(1, 30, 40).then(function(olditem) {
           expect(olditem).to.not.exist;
           return done();
+        });
+      });
+    });
+    it("should be able to add an entity", function(done) {
+      var e;
+      e = {
+        name: 'entity 1',
+        x: 30,
+        y: 40,
+        height: 1,
+        width: 1
+      };
+      return tiler.addEntity(1, e).then(function() {
+        return tiler.zmgr.resolveZoneFor(1, 30, 40).then(function(zoneObj) {
+          var addedEntity, entityQT;
+          entityQT = tiler.zoneEntityQuadTrees[zoneObj.tileid];
+          addedEntity = entityQT.get({
+            x: 30,
+            y: 40,
+            width: 1,
+            height: 1
+          });
+          expect(addedEntity).to.exist;
+          return done();
+        });
+      });
+    });
+    it("should be able to get an entity", function(done) {
+      return tiler.getItemAt(1, 30, 40).then(function(entity) {
+        console.log('get entity is');
+        console.dir(entity);
+        expect(entity).to.exist;
+        return done();
+      });
+    });
+    it("should be able to remove an entity", function(done) {
+      var e;
+      e = {
+        name: 'entity 2',
+        x: 32,
+        y: 40,
+        height: 1,
+        width: 1
+      };
+      return tiler.addEntity(1, e).then(function() {
+        console.log('entity 2 added');
+        return tiler.removeEntity(1, e).then(function(result) {
+          console.log('entity 2 removed');
+          console.dir(result);
+          return tiler.getEntityAt(1, 32, 40).then(function(olde) {
+            console.log('trying to get entity 2 again..');
+            console.dir(olde);
+            expect(olde).to.not.exist;
+            return done();
+          });
         });
       });
     });
