@@ -59,9 +59,9 @@ class TilerSiblings
     # Get up to speed with current zone changes by requesting oplog from random sibling
     # Registering with the redis-like cache-engine will make all subsequent operations from all other siblings/replicas replicate to us from now on
     @repl.checkMasterReplicaFor(zoneObj).then (becameMaster)=>
-      console.log 'master checked. becameMaster = '+becameMaster
+      if debug then console.log 'master checked. becameMaster = '+becameMaster
       if becameMaster
-        console.log '================== registerAsSiblingForZone done'
+        if debug then console.log '================== registerAsSiblingForZone done'
         q.resolve()
       else
         @repl.setOurselvesAsReplica(zoneObj)
@@ -69,7 +69,7 @@ class TilerSiblings
           ()=>
             # We ask a random replica to get their oplog that started with the save timestamp of the zone just loaded
             @repl.getAndExecuteAllOutstandingCommands(zoneObj).then ()=>
-              console.log '==================  registerAsSiblingForZone done 2'
+              if debug then console.log '==================  registerAsSiblingForZone done 2'
               q.resolve()
           ,@PAUSE_BETWEEN_REGISTER_AND_GET_OPLOG
         )

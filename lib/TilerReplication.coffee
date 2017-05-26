@@ -157,7 +157,7 @@ class TilerReplication
         siblings.forEach (sibling)=>
           if debug then console.log 'checkMasterReplica sibling -> '+sibling
           arr = sibling.split ','
-          console.dir arr
+          if debug then console.dir arr
           if arr[2] and arr[2] == 'master' then master = true
           if arr[0] == @myAddress then master = false # it's just us, dammit, we probably rebooted quickly and the info hasn't expired yet
         if not master
