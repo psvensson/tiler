@@ -280,8 +280,8 @@ class Tiler
           console.log 'removeSomething removing from zone '+zoneObj.tileid+' :'
           console.dir something
           rres = qt.remove(something,something)
-          console.log 'result of remove was '+rres
-          console.dir rres
+          #console.log 'result of remove was '+rres
+          #console.dir rres
           @dirtyZones[zoneObj.tileid] = zoneObj
           stuff = zoneObj[propname]
           index = -1
