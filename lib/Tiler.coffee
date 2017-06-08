@@ -278,7 +278,7 @@ class Tiler
         if zoneObj
           qt = qthash[zoneObj.tileid]
           console.log 'removeSomething removing from zone '+zoneObj.tileid+' :'
-          console.dir something
+          #console.dir something
           rres = qt.remove(something,something)
           #console.log 'result of remove was '+rres
           #console.dir rres
